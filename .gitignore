@@ -38,3 +38,8 @@ logs/
 .DS_Store
 Thumbs.db
 
+# 数据文件 - 忽略data目录中的所有文件（上传的图片、视频等）
+data/
+data/**
+!data/.gitkeep
+
