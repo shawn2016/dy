@@ -1,0 +1,25 @@
+{
+  "users": {
+    "admin": {
+      "username": "admin",
+      "password": "123456"
+    }
+  },
+  "covers": {
+    "sample": {
+      "name": "测试封面",
+      "image_url": "https://via.placeholder.com/300x200",
+      "description": "这是一个测试封面描述"
+    }
+  },
+  "videos": {
+    "sample": {
+      "name": "测试视频",
+      "video_url": "https://example.com/video.mp4",
+      "thumbnail_url": "https://via.placeholder.com/300x200",
+      "duration": 120,
+      "description": "这是一个测试视频描述"
+    }
+  }
+}
+
