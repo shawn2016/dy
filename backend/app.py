@@ -1,14 +1,22 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+# 延迟导入PIL，避免启动时错误
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except ImportError:
+    Image = None
+    ImageDraw = None
+    ImageFont = None
 import os
 import random
 import string
 import uuid
+import json
 
 app = Flask(__name__, static_folder='../data', static_url_path='/data')
 CORS(app)
@@ -90,8 +98,19 @@ class Cover(db.Model):
     __tablename__ = 'covers'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(200), nullable=False)
-    image_url = db.Column(db.String(500), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    original_image_path = db.Column(db.String(255))
+    cropped_image_path = db.Column(db.String(255), nullable=False)
+    video_path = db.Column(db.String(255))
+    title_text = db.Column(db.String(30))
+    title_font = db.Column(db.String(20), default='Arial')
+    title_font_size = db.Column(db.Integer, default=24)
+    title_color = db.Column(db.String(20), default='#FFFFFF')
+    title_position_x = db.Column(db.Integer, default=0)
+    title_position_y = db.Column(db.Integer, default=0)
+    title_bold = db.Column(db.Boolean, default=False)
+    title_italic = db.Column(db.Boolean, default=False)
+    status = db.Column(db.Integer, default=1)  # 0=禁用，1=启用
     description = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -100,10 +119,23 @@ class Cover(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'image_url': self.image_url,
+            'original_image_path': self.original_image_path,
+            'cropped_image_path': self.cropped_image_path,
+            'video_path': self.video_path,
+            'title_text': self.title_text,
+            'title_font': self.title_font,
+            'title_font_size': self.title_font_size,
+            'title_color': self.title_color,
+            'title_position_x': self.title_position_x,
+            'title_position_y': self.title_position_y,
+            'title_bold': self.title_bold,
+            'title_italic': self.title_italic,
+            'status': self.status,
             'description': self.description,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # 兼容旧字段
+            'image_url': self.cropped_image_path
         }
 
 # 视频模型
@@ -258,22 +290,72 @@ def logout():
         'data': None
     })
 
-# 获取所有封面
+# 获取封面列表（支持分页和查询）
 @app.route('/covers', methods=['GET'])
 @auth_required
 def get_covers():
     try:
-        covers = Cover.query.order_by(Cover.created_at.desc()).all()
+        # 获取查询参数
+        name = request.args.get('name', '').strip()
+        start_time = request.args.get('start_time', '').strip()
+        end_time = request.args.get('end_time', '').strip()
+        status = request.args.get('status', type=int)
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 10, type=int)
+        
+        # 构建查询
+        query = Cover.query
+        
+        # 名称模糊查询
+        if name:
+            query = query.filter(Cover.name.like(f'%{name}%'))
+        
+        # 时间范围查询
+        if start_time:
+            try:
+                start_date = datetime.strptime(start_time, '%Y-%m-%d')
+                query = query.filter(Cover.created_at >= start_date)
+            except:
+                pass
+        
+        if end_time:
+            try:
+                end_date = datetime.strptime(end_time, '%Y-%m-%d')
+                end_date = end_date.replace(hour=23, minute=59, second=59)
+                query = query.filter(Cover.created_at <= end_date)
+            except:
+                pass
+        
+        # 状态查询
+        if status is not None:
+            query = query.filter(Cover.status == status)
+        
+        # 排序和分页
+        query = query.order_by(Cover.created_at.desc())
+        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+        
         return jsonify({
             'code': 200,
             'message': 'success',
-            'data': [cover.to_dict() for cover in covers]
+            'data': {
+                'list': [cover.to_dict() for cover in pagination.items],
+                'total': pagination.total,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': pagination.pages
+            }
         })
     except Exception as e:
         return jsonify({
             'code': 500,
             'message': str(e),
-            'data': []
+            'data': {
+                'list': [],
+                'total': 0,
+                'page': 1,
+                'page_size': 10,
+                'total_pages': 0
+            }
         }), 500
 
 # 获取单个封面
@@ -308,16 +390,27 @@ def create_cover():
                 'data': None
             }), 400
         
-        if not data.get('image_url'):
+        if not data.get('cropped_image_path'):
             return jsonify({
                 'code': 400,
-                'message': '图片URL不能为空',
+                'message': '裁剪后图片路径不能为空',
                 'data': None
             }), 400
         
         cover = Cover(
             name=data.get('name'),
-            image_url=data.get('image_url'),
+            original_image_path=data.get('original_image_path'),
+            cropped_image_path=data.get('cropped_image_path'),
+            video_path=data.get('video_path'),
+            title_text=data.get('title_text'),
+            title_font=data.get('title_font', 'Arial'),
+            title_font_size=data.get('title_font_size', 24),
+            title_color=data.get('title_color', '#FFFFFF'),
+            title_position_x=data.get('title_position_x', 0),
+            title_position_y=data.get('title_position_y', 0),
+            title_bold=data.get('title_bold', False),
+            title_italic=data.get('title_italic', False),
+            status=data.get('status', 1),
             description=data.get('description', '')
         )
         
@@ -347,8 +440,30 @@ def update_cover(cover_id):
         
         if data.get('name'):
             cover.name = data.get('name')
-        if data.get('image_url'):
-            cover.image_url = data.get('image_url')
+        if 'original_image_path' in data:
+            cover.original_image_path = data.get('original_image_path')
+        if data.get('cropped_image_path'):
+            cover.cropped_image_path = data.get('cropped_image_path')
+        if 'video_path' in data:
+            cover.video_path = data.get('video_path')
+        if 'title_text' in data:
+            cover.title_text = data.get('title_text')
+        if 'title_font' in data:
+            cover.title_font = data.get('title_font')
+        if 'title_font_size' in data:
+            cover.title_font_size = data.get('title_font_size')
+        if 'title_color' in data:
+            cover.title_color = data.get('title_color')
+        if 'title_position_x' in data:
+            cover.title_position_x = data.get('title_position_x')
+        if 'title_position_y' in data:
+            cover.title_position_y = data.get('title_position_y')
+        if 'title_bold' in data:
+            cover.title_bold = data.get('title_bold')
+        if 'title_italic' in data:
+            cover.title_italic = data.get('title_italic')
+        if 'status' in data:
+            cover.status = data.get('status')
         if 'description' in data:
             cover.description = data.get('description')
         
@@ -384,6 +499,165 @@ def delete_cover(cover_id):
         })
     except Exception as e:
         db.session.rollback()
+        return jsonify({
+            'code': 500,
+            'message': str(e),
+            'data': None
+        }), 500
+
+# 生成视频接口
+@app.route('/api/generate/video', methods=['POST'])
+@auth_required
+def generate_video():
+    """后台生成视频接口"""
+    try:
+        data = request.get_json()
+        cropped_image_path = data.get('cropped_image_path')
+        title_config = data.get('title_config', {})
+        
+        if not cropped_image_path:
+            return jsonify({
+                'code': 400,
+                'message': '裁剪后图片路径不能为空',
+                'data': None
+            }), 400
+        
+        # 构建完整路径
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        image_full_path = os.path.join(base_dir, '..', cropped_image_path.lstrip('/'))
+        
+        if not os.path.exists(image_full_path):
+            return jsonify({
+                'code': 404,
+                'message': '图片文件不存在',
+                'data': None
+            }), 404
+        
+        # 生成视频文件名
+        video_filename = f'{uuid.uuid4().hex}.mp4'
+        video_dir = os.path.join(base_dir, '..', 'data', 'videos')
+        os.makedirs(video_dir, exist_ok=True)
+        video_full_path = os.path.join(video_dir, video_filename)
+        
+        # 导入视频生成函数
+        sys.path.insert(0, os.path.join(base_dir))
+        from utils.video_generator import generate_video_from_image
+        
+        # 生成视频
+        success = generate_video_from_image(
+            image_full_path,
+            title_config,
+            video_full_path,
+            duration=3
+        )
+        
+        if not success:
+            return jsonify({
+                'code': 500,
+                'message': '视频生成失败',
+                'data': None
+            }), 500
+        
+        # 返回视频路径
+        video_path = f'/data/videos/{video_filename}'
+        
+        return jsonify({
+            'code': 200,
+            'message': '视频生成成功',
+            'data': {
+                'video_path': video_path
+            }
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'code': 500,
+            'message': str(e),
+            'data': None
+        }), 500
+
+# 获取封面视频
+@app.route('/api/covers/<int:cover_id>/video', methods=['GET'])
+@auth_required
+def get_cover_video(cover_id):
+    """获取封面视频文件流"""
+    try:
+        cover = Cover.query.get_or_404(cover_id)
+        
+        if not cover.video_path:
+            return jsonify({
+                'code': 404,
+                'message': '视频不存在',
+                'data': None
+            }), 404
+        
+        # 构建完整路径
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        video_full_path = os.path.join(base_dir, '..', cover.video_path.lstrip('/'))
+        
+        if not os.path.exists(video_full_path):
+            return jsonify({
+                'code': 404,
+                'message': '视频文件不存在',
+                'data': None
+            }), 404
+        
+        return send_file(video_full_path, mimetype='video/mp4')
+    except Exception as e:
+        return jsonify({
+            'code': 500,
+            'message': str(e),
+            'data': None
+        }), 500
+
+# 上传封面图片
+@app.route('/covers/upload', methods=['POST'])
+@auth_required
+def upload_cover_image():
+    try:
+        user_id = get_jwt_identity()
+        
+        if 'cover' not in request.files:
+            return jsonify({
+                'code': 400,
+                'message': '请选择封面图片',
+                'data': None
+            }), 400
+        
+        file = request.files['cover']
+        if file.filename == '':
+            return jsonify({
+                'code': 400,
+                'message': '请选择封面图片',
+                'data': None
+            }), 400
+        
+        # 创建目录结构
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        cover_dir = os.path.join(base_dir, '..', 'data', 'covers')
+        os.makedirs(cover_dir, exist_ok=True)
+        
+        # 生成文件名
+        filename = secure_filename(file.filename)
+        ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else 'jpg'
+        new_filename = f'{uuid.uuid4().hex}.{ext}'
+        filepath = os.path.join(cover_dir, new_filename)
+        
+        # 保存文件
+        file.save(filepath)
+        
+        # 返回图片URL（相对路径）
+        image_url = f'/data/covers/{new_filename}'
+        
+        return jsonify({
+            'code': 200,
+            'message': '上传成功',
+            'data': {
+                'image_url': image_url
+            }
+        })
+    except Exception as e:
         return jsonify({
             'code': 500,
             'message': str(e),

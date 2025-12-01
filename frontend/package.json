@@ -13,7 +13,10 @@
     "element-plus": "^2.4.4",
     "axios": "^1.6.2",
     "@element-plus/icons-vue": "^2.3.1",
-    "pinia": "^2.1.7"
+    "pinia": "^2.1.7",
+    "vue-cropper": "^0.6.2",
+    "@ffmpeg/ffmpeg": "^0.12.6",
+    "@ffmpeg/util": "^0.12.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",

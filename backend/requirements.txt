@@ -6,4 +6,7 @@ PyMySQL==1.1.0
 cryptography==41.0.7
 flask-jwt-extended==4.6.0
 werkzeug==3.0.1
+Pillow==10.1.0
+# moviepy==1.0.3  # 可选，视频生成功能需要，但安装可能有问题，可稍后手动安装
+python-dotenv==1.0.0
 

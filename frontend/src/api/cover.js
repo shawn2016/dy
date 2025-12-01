@@ -70,9 +70,9 @@ api.interceptors.response.use(
   }
 )
 
-// 获取所有封面
-export const getCovers = () => {
-  return api.get('/covers')
+// 获取封面列表（支持分页和查询）
+export const getCovers = (params = {}) => {
+  return api.get('/covers', { params })
 }
 
 // 获取单个封面
@@ -93,6 +93,25 @@ export const updateCover = (id, data) => {
 // 删除封面
 export const deleteCover = (id) => {
   return api.delete(`/covers/${id}`)
+}
+
+// 上传封面图片
+export const uploadCoverImage = (formData) => {
+  return api.post('/covers/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+// 生成视频
+export const generateVideo = (data) => {
+  return api.post('/api/generate/video', data)
+}
+
+// 获取封面视频URL
+export const getCoverVideoUrl = (coverId) => {
+  return `/api/covers/${coverId}/video`
 }
 
 export default api
