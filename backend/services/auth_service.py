@@ -2,8 +2,8 @@
 认证服务
 """
 from flask_jwt_extended import create_access_token
-from ..models import User
-from ..config.database import db
+from models import User
+from config.database import db
 
 
 class AuthService:

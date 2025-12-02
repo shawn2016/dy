@@ -11,7 +11,7 @@ def init_db(app):
     db.init_app(app)
     with app.app_context():
         # 导入所有模型，确保它们被注册
-        from ..models import User, Cover, Video
+        from models import User, Cover, Video
         
         # 创建所有表
         db.create_all()
@@ -24,7 +24,7 @@ def init_db(app):
 
 def init_default_user():
     """初始化默认管理员用户"""
-    from ..models import User
+    from models import User
     
     admin = User.query.filter_by(username='admin').first()
     if not admin:
@@ -37,7 +37,7 @@ def init_default_user():
 def check_and_add_phone_column():
     """检查并添加phone字段（兼容旧数据库）"""
     from sqlalchemy import inspect, text
-    from ..models import User
+    from models import User
     
     inspector = inspect(db.engine)
     columns = [col['name'] for col in inspector.get_columns('users')]

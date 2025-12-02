@@ -1,9 +1,9 @@
 """
 数据模型
 """
-from .user import User
-from .cover import Cover
-from .video import Video
+from models.user import User
+from models.cover import Cover
+from models.video import Video
 
 __all__ = ['User', 'Cover', 'Video']
 

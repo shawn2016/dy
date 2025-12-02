@@ -1,8 +1,8 @@
 """
 视频服务
 """
-from ..models import Video
-from ..config.database import db
+from models import Video
+from config.database import db
 
 
 class VideoService:

@@ -2,8 +2,8 @@
 封面服务
 """
 from datetime import datetime
-from ..models import Cover
-from ..config.database import db
+from models import Cover
+from config.database import db
 
 
 class CoverService:

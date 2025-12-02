@@ -47,6 +47,12 @@ const routes = [
     name: 'VideoManagement',
     component: VideoManagement,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/cover-setting',
+    name: 'CoverSetting',
+    component: () => import('@/views/CoverSetting.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

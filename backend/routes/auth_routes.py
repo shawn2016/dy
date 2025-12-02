@@ -3,9 +3,9 @@
 """
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from . import auth_bp
-from ..services import AuthService
-from ..middleware import auth_required
+from routes import auth_bp
+from services import AuthService
+from middleware import auth_required
 
 
 @auth_bp.route('/login', methods=['POST'])

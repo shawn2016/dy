@@ -7,9 +7,13 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 import sys
 import os
-# 添加当前目录到路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# 添加当前目录到路径，确保可以导入模块
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+# 使用绝对导入
 from config import Config
 from config.database import db, init_db
 from routes import register_routes

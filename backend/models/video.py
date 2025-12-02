@@ -2,7 +2,7 @@
 视频模型
 """
 from datetime import datetime
-from ..config.database import db
+from config.database import db
 
 
 class Video(db.Model):

@@ -2,9 +2,9 @@
 视频路由
 """
 from flask import request, jsonify
-from . import video_bp
-from ..services import VideoService
-from ..middleware import auth_required
+from routes import video_bp
+from services import VideoService
+from middleware import auth_required
 
 
 @video_bp.route('', methods=['GET'])

@@ -6,10 +6,10 @@ import os
 import uuid
 import sys
 from werkzeug.utils import secure_filename
-from . import cover_bp
-from ..services import CoverService
-from ..middleware import auth_required
-from ..models import Cover
+from routes import cover_bp
+from services import CoverService
+from middleware import auth_required
+from models import Cover
 
 
 @cover_bp.route('/covers', methods=['GET'])
@@ -217,8 +217,7 @@ def generate_video():
         video_full_path = os.path.join(video_dir, video_filename)
         
         # 导入视频生成函数
-        sys.path.insert(0, os.path.join(base_dir))
-        from ..utils.video_generator import generate_video_from_image
+        from utils.video_generator import generate_video_from_image
         
         # 生成视频
         success = generate_video_from_image(

@@ -3,7 +3,7 @@
 """
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from ..config.database import db
+from config.database import db
 
 
 class User(db.Model):

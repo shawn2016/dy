@@ -15,8 +15,8 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:5001',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        changeOrigin: true
+        // 不rewrite，因为后端路由已经包含/api前缀
       },
       '/data': {
         target: 'http://localhost:5001',

@@ -464,6 +464,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Plus, Edit, Delete, Search, UploadFilled, Refresh, Grid, List, VideoPlay 
@@ -472,6 +473,8 @@ import {
   getCovers, createCover, updateCover, deleteCover, uploadCoverImage, 
   generateVideo, getCoverVideoUrl 
 } from '@/api/cover'
+
+const router = useRouter()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -636,33 +639,9 @@ const handleSizeChange = (size) => {
   loadCovers()
 }
 
-// 新增
+// 新增 - 跳转到封面设置页面
 const handleAdd = () => {
-  isEdit.value = false
-  currentStep.value = 0
-  formData.value = {
-    id: null,
-    name: '',
-    original_image_path: '',
-    cropped_image_path: '',
-    video_path: '',
-    status: 1,
-    description: ''
-  }
-  titleConfig.value = {
-    text: '',
-    font: 'Arial',
-    font_size: 24,
-    color: '#FFFFFF',
-    position_x: 0,
-    position_y: 0,
-    bold: false,
-    italic: false
-  }
-  croppedPreviewUrl.value = ''
-  videoPreviewUrl.value = ''
-  resetCropState()
-  dialogVisible.value = true
+  router.push('/cover-setting')
 }
 
 // 编辑

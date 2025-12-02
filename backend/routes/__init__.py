@@ -9,7 +9,9 @@ cover_bp = Blueprint('cover', __name__, url_prefix='/api')
 video_bp = Blueprint('video', __name__, url_prefix='/api/videos')
 
 # 导入路由（必须在蓝图创建后）
-from . import auth_routes, cover_routes, video_routes
+import routes.auth_routes
+import routes.cover_routes
+import routes.video_routes
 
 def register_routes(app):
     """注册所有路由"""
