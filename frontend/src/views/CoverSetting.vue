@@ -78,33 +78,64 @@
       <el-container class="main-container">
       <!-- 中间：裁剪+操作区 -->
       <el-main class="main-content">
+        <!-- 新增：入口按钮区 -->
+        <el-row style="margin-bottom: 10px;">
+          <el-col :span="12">
+            <el-button type="primary" :icon="VideoCamera" @click="openVideoImport">导入视频</el-button>
+            <input
+              ref="videoInput"
+              type="file"
+              accept="video/mp4,video/mov"
+              style="display: none;"
+              @change="handleVideoImport"
+            >
+          </el-col>
+          <el-col :span="12" style="text-align: right;">
+            <el-button type="default" :icon="Picture" @click="openImageImport">选择本地图片</el-button>
+            <input
+              ref="imageInput"
+              type="file"
+              accept="image/jpeg,image/png"
+              style="display: none;"
+              @change="handleImageImport"
+            >
+          </el-col>
+        </el-row>
+        
+        <!-- 裁剪预览区（同步关键帧） -->
         <el-row>
-          <!-- 裁剪区域（占位） -->
           <el-col :span="24" class="crop-area">
-            <div class="crop-placeholder">
+            <div class="crop-preview" v-if="selectedKeyframe">
+              <img
+                :src="selectedKeyframe"
+                style="max-width: 100%; max-height: 100%; object-fit: contain;"
+              >
+            </div>
+            <div class="crop-placeholder" v-else>
               <el-icon :size="48"><Picture /></el-icon>
-              <p>裁剪操作区（图片/视频帧裁剪 - 占位）</p>
+              <p>裁剪操作区（选中关键帧/图片后预览）</p>
             </div>
           </el-col>
           
-          <!-- 操作按钮栏（占位） -->
+          <!-- 操作区 -->
           <el-col :span="24" class="toolbar-area">
             <div class="toolbar-content">
               <el-button :icon="Star" text size="small">增强</el-button>
               <el-button :icon="View" text size="small">对比</el-button>
               <el-divider direction="vertical" />
               <div class="zoom-controls">
+                <span style="font-size: 13px; margin-right: 8px;">缩放</span>
                 <el-icon class="zoom-icon"><ZoomOut /></el-icon>
                 <el-slider 
-                  v-model="zoomValue" 
-                  :min="10" 
+                  v-model="scaleValue" 
+                  :min="50" 
                   :max="200" 
                   :step="10"
                   :show-tooltip="false"
                   class="zoom-slider"
+                  style="width: 100px;"
                 />
                 <el-icon class="zoom-icon"><ZoomIn /></el-icon>
-                <el-button :icon="Search" text size="small" class="zoom-reset">1:1</el-button>
               </div>
             </div>
           </el-col>
@@ -114,21 +145,55 @@
       <!-- 底部：关键帧栏 -->
       <el-footer class="footer-section">
         <el-row class="footer-content">
-          <!-- 关键帧预览条（占位） -->
+          <!-- 关键帧横向滚动区 -->
           <el-col :span="20" class="keyframe-section">
             <div class="keyframe-scroll">
-              <div class="keyframe-item" v-for="i in 10" :key="i">
-                <div class="keyframe-thumbnail">帧{{ i }}</div>
-                <span v-if="i === 3" class="recommend-badge">推荐</span>
+              <div
+                v-for="(frame, index) in keyframes"
+                :key="index"
+                class="keyframe-item"
+                :class="{ 'keyframe-selected': selectedFrameIndex === index }"
+                @click="selectKeyframe(index)"
+              >
+                <img :src="frame" class="keyframe-thumbnail" />
+              </div>
+              <div v-if="keyframes.length === 0" class="keyframe-empty">
+                导入视频后将显示关键帧
               </div>
             </div>
           </el-col>
           
-          <!-- 上传封面按钮（占位） -->
+          <!-- 推荐按钮+上传按钮区 -->
           <el-col :span="4" class="upload-section">
-            <el-button type="primary" :icon="Plus" size="large">
-              上传封面
-            </el-button>
+            <div class="recommend-buttons">
+              <el-button 
+                type="default" 
+                size="small" 
+                @click="selectKeyframe(0)"
+                :disabled="keyframes.length === 0"
+              >
+                推荐1
+              </el-button>
+              <el-button 
+                type="default" 
+                size="small" 
+                @click="selectKeyframe(5)"
+                :disabled="keyframes.length === 0"
+              >
+                推荐2
+              </el-button>
+              <el-button 
+                type="default" 
+                size="small" 
+                @click="selectKeyframe(10)"
+                :disabled="keyframes.length === 0"
+              >
+                推荐3
+              </el-button>
+              <el-button type="primary" :icon="Plus" style="margin-top: 10px;">
+                上传封面
+              </el-button>
+            </div>
           </el-col>
         </el-row>
       </el-footer>
@@ -180,16 +245,19 @@ import {
   ZoomIn,
   Search,
   Plus,
-  ArrowLeft
+  ArrowLeft,
+  VideoCamera
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
-// 缩放值
-const zoomValue = ref(100)
-
-// 静态选中标签（无交互，仅展示）
-const activeTab = ref('recommend')
+// 视频/关键帧相关变量
+const videoInput = ref(null)
+const imageInput = ref(null)
+const keyframes = ref([]) // 11个关键帧的图片地址
+const selectedKeyframe = ref('') // 当前选中的关键帧
+const selectedFrameIndex = ref(-1) // 当前选中的关键帧索引
+const scaleValue = ref(100) // 缩放值（百分比）
 
 // 返回
 const handleBack = () => {
@@ -206,6 +274,100 @@ const handleComplete = () => {
   // TODO: 保存封面数据
   console.log('完成封面设置')
   router.push('/cover-management')
+}
+
+// 打开视频导入选择框
+const openVideoImport = () => {
+  videoInput.value?.click()
+}
+
+// 处理视频导入，生成11个关键帧
+const handleVideoImport = async (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+
+  try {
+    // 1. 加载视频
+    const video = document.createElement('video')
+    video.src = URL.createObjectURL(file)
+    video.crossOrigin = 'anonymous'
+    video.preload = 'metadata'
+    
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        video.currentTime = 0
+        resolve()
+      }
+      video.onerror = reject
+    })
+
+    // 2. 生成11个关键帧（均匀分布在视频时长）
+    const frameCount = 11
+    const duration = video.duration
+    keyframes.value = []
+
+    for (let i = 0; i < frameCount; i++) {
+      const time = (i * duration) / (frameCount - 1)
+      video.currentTime = time
+
+      await new Promise((resolve) => {
+        const onSeeked = () => {
+          video.removeEventListener('seeked', onSeeked)
+          resolve()
+        }
+        video.addEventListener('seeked', onSeeked)
+      })
+
+      // 3. 用canvas截取帧
+      const canvas = document.createElement('canvas')
+      const width = 200 // 关键帧缩略图宽度
+      const height = (video.videoHeight / video.videoWidth) * width
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(video, 0, 0, width, height)
+
+      // 4. 转成图片地址存入关键帧列表
+      keyframes.value.push(canvas.toDataURL('image/jpeg', 0.8))
+    }
+
+    // 5. 默认选中第1个关键帧
+    selectKeyframe(0)
+
+    // 清理视频URL
+    URL.revokeObjectURL(video.src)
+  } catch (error) {
+    console.error('视频处理失败:', error)
+    alert('视频处理失败，请检查视频格式')
+  }
+
+  // 清空input，允许重复选择同一文件
+  e.target.value = ''
+}
+
+// 选择关键帧（同步到裁剪区预览）
+const selectKeyframe = (index) => {
+  if (index < 0 || index >= keyframes.value.length) return
+  selectedFrameIndex.value = index
+  selectedKeyframe.value = keyframes.value[index]
+}
+
+// 打开图片导入选择框
+const openImageImport = () => {
+  imageInput.value?.click()
+}
+
+// 处理图片导入（占位，仅预览）
+const handleImageImport = (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+
+  // 直接预览图片（后续补充裁剪逻辑）
+  selectedKeyframe.value = URL.createObjectURL(file)
+  keyframes.value = [] // 清空关键帧（图片和视频二选一）
+  selectedFrameIndex.value = -1
+
+  e.target.value = ''
 }
 </script>
 
@@ -420,6 +582,17 @@ const handleComplete = () => {
   border-radius: 4px;
   margin-bottom: 8px;
   background-color: #fafafa;
+  position: relative;
+  overflow: hidden;
+}
+
+.crop-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
 }
 
 .crop-placeholder {
@@ -501,8 +674,8 @@ const handleComplete = () => {
 
 /* 底部关键帧栏 */
 .footer-section {
-  height: 80px;
-  padding: 4px 20px;
+  height: 120px;
+  padding: 10px 20px;
   background-color: #f8f9fa;
   border-top: 1px solid #ddd;
 }
@@ -524,33 +697,63 @@ const handleComplete = () => {
   gap: 8px;
   overflow-x: auto;
   align-items: center;
+  padding: 5px 0;
+}
+
+.keyframe-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.keyframe-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.keyframe-scroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.keyframe-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
 .keyframe-item {
   position: relative;
   flex-shrink: 0;
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 100px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.keyframe-item:hover {
+  transform: scale(1.02);
+  border-color: #409eff;
+}
+
+.keyframe-item.keyframe-selected {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
 }
 
 .keyframe-thumbnail {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  border-radius: 4px;
+  object-fit: cover;
+  display: block;
+}
+
+.keyframe-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.3s;
-  border: 2px solid transparent;
-}
-
-.keyframe-thumbnail:hover {
-  border-color: #409eff;
-  transform: scale(1.05);
+  height: 100px;
+  color: #909399;
+  font-size: 14px;
 }
 
 .recommend-badge {
@@ -571,6 +774,14 @@ const handleComplete = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.recommend-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
 }
 
 /* 右侧预览区 */
