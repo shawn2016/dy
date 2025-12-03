@@ -10,3 +10,4 @@ MYSQL_DATABASE = 'video_cover_db'
 # JWT密钥（生产环境请使用强密钥）
 JWT_SECRET_KEY = 'your-secret-key-change-in-production'
 
+

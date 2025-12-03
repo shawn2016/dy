@@ -112,3 +112,4 @@ app.register_blueprint(xxx_bp)
 - ✅ 符合单一职责原则
 - ✅ 便于团队协作
 
+
