@@ -107,9 +107,19 @@
           <el-col :span="24" class="crop-area">
             <div class="crop-preview" v-if="selectedKeyframe">
               <img
+                ref="cropImage"
                 :src="selectedKeyframe"
-                style="max-width: 100%; max-height: 100%; object-fit: contain;"
+                class="crop-image"
+                :style="imageStyle"
+                @load="onImageLoad"
+                @mousedown="startImageDrag"
               >
+              <!-- 裁剪框（颜色框，标识选中区域） -->
+              <div
+                v-if="selectedKeyframe"
+                class="crop-box"
+                :style="cropBoxStyle"
+              ></div>
             </div>
             <div class="crop-placeholder" v-else>
               <el-icon :size="48"><Picture /></el-icon>
@@ -266,7 +276,7 @@
 </template>
 
 <script setup>
-import { ref, onUnmounted, computed } from 'vue'
+import { ref, onUnmounted, computed, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   ElContainer, 
@@ -317,6 +327,7 @@ const currentProgressPercent = ref(0) // 当前进度百分比（0-1）
 const videoRef = ref(null) // 存储视频实例
 const currentVideoFile = ref(null) // 存储当前导入的视频文件
 const slider = ref(null) // 滑块元素
+const cropImage = ref(null) // 裁剪区域的图片元素
 
 // 推荐气泡配置（显示在第2、6、8个关键帧上方）
 const recommendBubbles = ref([
@@ -324,6 +335,27 @@ const recommendBubbles = ref([
   { index: 5 }, // 第6个（索引5）
   { index: 7 }  // 第8个（索引7）
 ])
+
+// 裁剪框样式
+const cropBoxStyle = ref({
+  width: '0px',
+  height: '0px',
+  left: '50%',
+  top: '50%',
+  transform: 'translate(-50%, -50%)'
+})
+
+// 图片显示样式
+const imageStyle = ref({})
+
+// 图片拖动相关变量
+const isImageDragging = ref(false)
+const imageDragStartX = ref(0) // 拖动开始时的鼠标X位置
+const imageDragStartY = ref(0) // 拖动开始时的鼠标Y位置
+const imageOffsetX = ref(0) // 图片相对容器的X偏移
+const imageOffsetY = ref(0) // 图片相对容器的Y偏移
+const imageOffsetXStart = ref(0) // 拖动开始时的图片X偏移
+const imageOffsetYStart = ref(0) // 拖动开始时的图片Y偏移
 
 // 返回
 const handleBack = () => {
@@ -441,6 +473,198 @@ const selectKeyframe = (index) => {
     const time = (index / (keyframes.value.length - 1 || 1)) * videoRef.value.duration
     videoRef.value.currentTime = time
   }
+  
+  // 等待图片加载后更新裁剪框
+  nextTick(() => {
+    if (cropImage.value && cropImage.value.complete) {
+      updateCropBox()
+    }
+  })
+}
+
+// 图片加载完成后更新裁剪框
+const onImageLoad = () => {
+  updateCropBox()
+}
+
+// 更新裁剪框尺寸和位置
+const updateCropBox = () => {
+  if (!selectedKeyframe.value || !cropImage.value) return
+  
+  const container = document.querySelector('.crop-area')
+  if (!container) return
+  
+  // 获取容器尺寸（预览区）
+  const containerRect = container.getBoundingClientRect()
+  const containerHeight = containerRect.height // 预览区高度（500px）
+  
+  // 裁剪框比例（9:16）
+  const cropRatio = 9 / 16
+  
+  // 裁剪框高度等于预览区高度
+  const cropHeight = containerHeight
+  // 根据高度和比例计算宽度（等比例缩放）
+  const cropWidth = cropHeight * cropRatio
+  
+  // 获取图片原始尺寸
+  const img = cropImage.value
+  const imgNaturalWidth = img.naturalWidth
+  const imgNaturalHeight = img.naturalHeight
+  const imgAspectRatio = imgNaturalWidth / imgNaturalHeight
+  
+  // 先让图片高度等于预览区高度，计算此时图片宽度
+  let imgDisplayHeight = containerHeight
+  let imgDisplayWidth = imgDisplayHeight * imgAspectRatio
+  
+  // 如果此时图片宽度小于颜色框宽度，则放大图片，使宽度至少等于颜色框宽度
+  if (imgDisplayWidth < cropWidth) {
+    imgDisplayWidth = cropWidth
+    imgDisplayHeight = imgDisplayWidth / imgAspectRatio
+  }
+  
+  // 计算裁剪框在容器中的位置（居中）
+  const left = containerRect.width / 2
+  const top = containerRect.height / 2
+  
+  cropBoxStyle.value = {
+    width: `${cropWidth}px`,
+    height: `${cropHeight}px`,
+    left: `${left}px`,
+    top: `${top}px`,
+    transform: 'translate(-50%, -50%)'
+  }
+  
+  // 计算图片的可拖动范围（确保图片边缘不超出颜色框）
+  const cropBoxLeft = left - cropWidth / 2
+  const cropBoxTop = top - cropHeight / 2
+  
+  // 如果图片尺寸大于颜色框，可以拖动
+  // 计算图片初始位置（居中）
+  if (imgDisplayWidth > cropWidth) {
+    // 图片宽度大于颜色框，初始位置居中
+    imageOffsetX.value = 0
+  } else {
+    // 图片宽度小于等于颜色框，不需要偏移
+    imageOffsetX.value = 0
+  }
+  
+  if (imgDisplayHeight > cropHeight) {
+    // 图片高度大于颜色框，初始位置居中
+    imageOffsetY.value = 0
+  } else {
+    // 图片高度小于等于颜色框，不需要偏移
+    imageOffsetY.value = 0
+  }
+  
+  // 更新图片显示尺寸和位置
+  updateImageStyle(imgDisplayWidth, imgDisplayHeight)
+}
+
+// 更新图片样式（包括位置）
+const updateImageStyle = (width, height) => {
+  const container = document.querySelector('.crop-area')
+  if (!container) return
+  
+  const containerRect = container.getBoundingClientRect()
+  const cropBoxLeft = containerRect.width / 2 - parseFloat(cropBoxStyle.value.width) / 2
+  const cropBoxTop = containerRect.height / 2 - parseFloat(cropBoxStyle.value.height) / 2
+  const cropBoxWidth = parseFloat(cropBoxStyle.value.width)
+  const cropBoxHeight = parseFloat(cropBoxStyle.value.height)
+  
+  // 计算图片的可拖动范围
+  const maxOffsetX = Math.max(0, (width - cropBoxWidth) / 2)
+  const maxOffsetY = Math.max(0, (height - cropBoxHeight) / 2)
+  
+  // 限制偏移范围
+  imageOffsetX.value = Math.max(-maxOffsetX, Math.min(maxOffsetX, imageOffsetX.value))
+  imageOffsetY.value = Math.max(-maxOffsetY, Math.min(maxOffsetY, imageOffsetY.value))
+  
+  // 计算图片在容器中的位置（居中 + 偏移）
+  const imageLeft = containerRect.width / 2 + imageOffsetX.value
+  const imageTop = containerRect.height / 2 + imageOffsetY.value
+  
+  imageStyle.value = {
+    width: `${width}px`,
+    height: `${height}px`,
+    objectFit: 'contain',
+    position: 'absolute',
+    left: `${imageLeft}px`,
+    top: `${imageTop}px`,
+    transform: 'translate(-50%, -50%)',
+    cursor: 'move'
+  }
+}
+
+// 开始拖动图片
+const startImageDrag = (e) => {
+  if (!cropImage.value) return
+  
+  e.preventDefault()
+  e.stopPropagation()
+  
+  isImageDragging.value = true
+  
+  // 记录初始鼠标位置
+  imageDragStartX.value = e.clientX
+  imageDragStartY.value = e.clientY
+  
+  // 记录拖动开始时的图片偏移
+  imageOffsetXStart.value = imageOffsetX.value
+  imageOffsetYStart.value = imageOffsetY.value
+  
+  document.addEventListener('mousemove', onImageDragMove)
+  document.addEventListener('mouseup', endImageDrag)
+}
+
+// 拖动图片中
+const onImageDragMove = (e) => {
+  if (!isImageDragging.value || !cropImage.value) return
+  
+  e.preventDefault()
+  e.stopPropagation()
+  
+  // 计算鼠标移动的距离
+  const deltaX = e.clientX - imageDragStartX.value
+  const deltaY = e.clientY - imageDragStartY.value
+  
+  // 获取图片和颜色框的尺寸
+  const container = document.querySelector('.crop-area')
+  if (!container) return
+  
+  const containerRect = container.getBoundingClientRect()
+  const cropBoxWidth = parseFloat(cropBoxStyle.value.width)
+  const cropBoxHeight = parseFloat(cropBoxStyle.value.height)
+  const imgDisplayWidth = parseFloat(imageStyle.value.width) || 0
+  const imgDisplayHeight = parseFloat(imageStyle.value.height) || 0
+  
+  // 计算图片的可拖动范围（确保图片边缘不超出颜色框）
+  const maxOffsetX = Math.max(0, (imgDisplayWidth - cropBoxWidth) / 2)
+  const maxOffsetY = Math.max(0, (imgDisplayHeight - cropBoxHeight) / 2)
+  
+  // 计算新的偏移量（初始偏移 + 鼠标移动距离）
+  const newOffsetX = imageOffsetXStart.value + deltaX
+  const newOffsetY = imageOffsetYStart.value + deltaY
+  
+  // 限制偏移范围
+  imageOffsetX.value = Math.max(-maxOffsetX, Math.min(maxOffsetX, newOffsetX))
+  imageOffsetY.value = Math.max(-maxOffsetY, Math.min(maxOffsetY, newOffsetY))
+  
+  // 更新图片位置
+  const imageLeft = containerRect.width / 2 + imageOffsetX.value
+  const imageTop = containerRect.height / 2 + imageOffsetY.value
+  
+  imageStyle.value = {
+    ...imageStyle.value,
+    left: `${imageLeft}px`,
+    top: `${imageTop}px`
+  }
+}
+
+// 结束拖动图片
+const endImageDrag = (e) => {
+  isImageDragging.value = false
+  document.removeEventListener('mousemove', onImageDragMove)
+  document.removeEventListener('mouseup', endImageDrag)
 }
 
 // 打开图片导入选择框
@@ -459,6 +683,13 @@ const handleImageImport = (e) => {
   selectedFrameIndex.value = -1
   videoRef.value = null // 清空视频实例
   currentVideoFile.value = null
+  
+  // 等待图片加载后更新裁剪框
+  nextTick(() => {
+    if (cropImage.value && cropImage.value.complete) {
+      updateCropBox()
+    }
+  })
 
   e.target.value = ''
 }
@@ -672,11 +903,25 @@ const endDrag = (e) => {
   document.removeEventListener('mouseleave', endDrag)
 }
 
+// 监听窗口大小改变，更新裁剪框
+const handleResize = () => {
+  if (selectedKeyframe.value) {
+    updateCropBox()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
 // 监听全局鼠标离开页面，防止悬浮窗残留
 onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', endDrag)
   document.removeEventListener('mouseleave', endDrag)
+  document.removeEventListener('mousemove', onImageDragMove)
+  document.removeEventListener('mouseup', endImageDrag)
   if (dragTimeout) {
     clearTimeout(dragTimeout)
   }
@@ -907,7 +1152,28 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
+  position: relative;
+}
+
+.crop-image {
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.crop-image:active {
+  cursor: grabbing !important;
+}
+
+/* 裁剪框（颜色框，标识选中区域） */
+.crop-box {
+  position: absolute;
+  border: 2px solid #1677ff;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 10;
+  box-sizing: border-box;
 }
 
 .crop-placeholder {
