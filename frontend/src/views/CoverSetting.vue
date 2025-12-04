@@ -89,6 +89,26 @@
               style="display: none;"
               @change="handleVideoImport"
             >
+            <!-- 封面比例切换按钮组 -->
+            <div style="display: inline-flex; align-items: center; margin-left: 8px; border: 1px solid #dcdfe6; border-radius: 4px; overflow: hidden;">
+              <el-button 
+                :type="coverRatio === 'vertical' ? 'primary' : 'default'" 
+                @click="setCoverRatio('vertical')"
+                :plain="coverRatio !== 'vertical'"
+                style="border: none; border-radius: 0;"
+              >
+                竖封面(3:4)
+              </el-button>
+              <el-divider direction="vertical" style="margin: 0; height: 20px;" />
+              <el-button 
+                :type="coverRatio === 'horizontal' ? 'primary' : 'default'" 
+                @click="setCoverRatio('horizontal')"
+                :plain="coverRatio !== 'horizontal'"
+                style="border: none; border-radius: 0;"
+              >
+                横封面(4:3)
+              </el-button>
+            </div>
           </el-col>
           <el-col :span="12" style="text-align: right;">
             <el-button type="default" :icon="Picture" @click="openImageImport">选择本地图片</el-button>
@@ -266,7 +286,7 @@
       <!-- 右侧：预览区 -->
       <el-aside width="200px" class="right-aside">
       <div class="preview-header">
-        <span>竖封面预览(3:4)</span>
+        <span>{{ coverRatio === 'vertical' ? '竖封面预览(3:4)' : '横封面预览(4:3)' }}</span>
       </div>
       <div class="preview-container">
         <div class="preview-placeholder">
@@ -322,6 +342,9 @@ const keyframes = ref([]) // 11个关键帧的图片地址
 const selectedKeyframe = ref('') // 当前选中的关键帧
 const selectedFrameIndex = ref(-1) // 当前选中的关键帧索引
 const scaleValue = ref(0) // 缩放值（百分比，0表示不缩放，100表示放大一倍）
+
+// 封面比例（vertical: 竖封面3:4, horizontal: 横封面4:3）
+const coverRatio = ref('vertical') // 默认竖封面
 
 // 拖动相关变量
 const progressTrack = ref(null)
@@ -507,8 +530,8 @@ const updateCropBox = () => {
   const containerRect = container.getBoundingClientRect()
   const containerHeight = containerRect.height // 预览区高度（500px）
   
-  // 裁剪框比例（9:16）
-  const cropRatio = 9 / 16
+  // 裁剪框比例（根据封面类型：竖封面3:4，横封面4:3）
+  const cropRatio = coverRatio.value === 'vertical' ? 3 / 4 : 4 / 3
   
   // 裁剪框高度等于预览区高度
   const cropHeight = containerHeight
@@ -627,6 +650,15 @@ const onCropAreaEnter = () => {
 // 鼠标离开裁剪区域
 const onCropAreaLeave = () => {
   // 可以添加一些视觉反馈
+}
+
+// 设置封面比例
+const setCoverRatio = (ratio) => {
+  coverRatio.value = ratio
+  // 切换比例后重新计算裁剪框
+  if (selectedKeyframe.value) {
+    updateCropBox()
+  }
 }
 
 // 更新图片样式（包括位置）
