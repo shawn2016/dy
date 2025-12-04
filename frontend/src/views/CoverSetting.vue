@@ -289,10 +289,29 @@
         <span>{{ coverRatio === 'vertical' ? '竖封面预览(3:4)' : '横封面预览(4:3)' }}</span>
       </div>
       <div class="preview-container">
-        <div class="preview-placeholder">
-          <div class="preview-content">
-            <el-icon :size="32"><Picture /></el-icon>
-            <p>竖封面预览区（3:4 - 占位）</p>
+        <div class="preview-grid" :class="{ 'preview-grid-vertical': coverRatio === 'vertical', 'preview-grid-horizontal': coverRatio === 'horizontal' }">
+          <!-- 第一个预览：当前裁剪的图片 -->
+          <div 
+            v-if="croppedPreviewImage" 
+            class="preview-item preview-item-active"
+            :style="{ backgroundImage: `url(${croppedPreviewImage})` }"
+          ></div>
+          <div v-else class="preview-item preview-item-active">
+            <div class="preview-item-empty">
+              <el-icon :size="24"><Picture /></el-icon>
+            </div>
+          </div>
+          
+          <!-- 其他预览：从关键帧生成或占位 -->
+          <div 
+            v-for="(preview, index) in previewImages" 
+            :key="index"
+            class="preview-item"
+            :style="{ backgroundImage: preview ? `url(${preview})` : 'none' }"
+          >
+            <div v-if="!preview" class="preview-item-empty">
+              <el-icon :size="20"><Picture /></el-icon>
+            </div>
           </div>
         </div>
       </div>
@@ -364,6 +383,11 @@ const recommendBubbles = ref([
   { index: 5 }, // 第6个（索引5）
   { index: 7 }  // 第8个（索引7）
 ])
+
+// 预览图列表
+const previewImages = ref([])
+// 当前裁剪的预览图
+const croppedPreviewImage = ref('')
 
 // 裁剪框样式
 const cropBoxStyle = ref({
@@ -474,6 +498,9 @@ const handleVideoImport = async (e) => {
     video.muted = true
     video.playsInline = true
     
+    // 生成预览图
+    generatePreviewImages()
+    
     // 注意：不清理视频URL，因为拖动时需要用到
     console.log('视频加载完成，时长:', video.duration, '秒')
   } catch (error) {
@@ -506,10 +533,17 @@ const selectKeyframe = (index) => {
     videoRef.value.currentTime = time
   }
   
-  // 等待图片加载后更新裁剪框
+  // 等待图片加载后更新裁剪框和预览
   nextTick(() => {
-    if (cropImage.value && cropImage.value.complete) {
-      updateCropBox()
+    if (cropImage.value) {
+      if (cropImage.value.complete) {
+        updateCropBox()
+      } else {
+        // 如果图片还没加载完成，等待加载完成
+        cropImage.value.onload = () => {
+          updateCropBox()
+        }
+      }
     }
   })
 }
@@ -601,6 +635,126 @@ const updateCropBox = () => {
   
   // 更新分辨率显示（裁剪后的实际分辨率）
   cropResolution.value = `${cropRealWidth} × ${cropRealHeight}`
+  
+  // 生成裁剪后的预览图
+  nextTick(() => {
+    generateCroppedPreview()
+  })
+  
+  // 生成其他预览图（从关键帧）
+  generatePreviewImages()
+}
+
+// 生成裁剪后的预览图（第一个预览）
+const generateCroppedPreview = () => {
+  if (!selectedKeyframe.value || !cropImage.value) {
+    croppedPreviewImage.value = ''
+    return
+  }
+  
+  const img = cropImage.value
+  
+  // 确保图片已加载
+  if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) {
+    return
+  }
+  
+  const container = document.querySelector('.crop-area')
+  if (!container) return
+  
+  const cropBoxWidth = parseFloat(cropBoxStyle.value.width)
+  const cropBoxHeight = parseFloat(cropBoxStyle.value.height)
+  const imgDisplayWidth = parseFloat(imageStyle.value.width) || 0
+  const imgDisplayHeight = parseFloat(imageStyle.value.height) || 0
+  
+  // 如果尺寸无效，不生成预览
+  if (cropBoxWidth <= 0 || cropBoxHeight <= 0 || imgDisplayWidth <= 0 || imgDisplayHeight <= 0) {
+    return
+  }
+  
+  // 获取容器尺寸
+  const containerRect = container.getBoundingClientRect()
+  
+  // 图片中心在容器中的位置（考虑偏移）
+  const imgCenterX = containerRect.width / 2 + imageOffsetX.value
+  const imgCenterY = containerRect.height / 2 + imageOffsetY.value
+  
+  // 裁剪框中心在容器中的位置（居中，无偏移）
+  const cropBoxCenterX = containerRect.width / 2
+  const cropBoxCenterY = containerRect.height / 2
+  
+  // 图片的左上角位置（相对于容器）
+  const imgLeft = imgCenterX - imgDisplayWidth / 2
+  const imgTop = imgCenterY - imgDisplayHeight / 2
+  
+  // 裁剪框的左上角位置（相对于容器）
+  const cropBoxLeft = cropBoxCenterX - cropBoxWidth / 2
+  const cropBoxTop = cropBoxCenterY - cropBoxHeight / 2
+  
+  // 计算裁剪框相对于图片的偏移（在显示尺寸下）
+  const sourceX = cropBoxLeft - imgLeft
+  const sourceY = cropBoxTop - imgTop
+  
+  // 确保源区域在图片范围内
+  const finalSourceX = Math.max(0, sourceX)
+  const finalSourceY = Math.max(0, sourceY)
+  const finalSourceWidth = Math.min(cropBoxWidth, imgDisplayWidth - finalSourceX)
+  const finalSourceHeight = Math.min(cropBoxHeight, imgDisplayHeight - finalSourceY)
+  
+  if (finalSourceWidth <= 0 || finalSourceHeight <= 0) {
+    croppedPreviewImage.value = ''
+    return
+  }
+  
+  // 计算源图片的缩放比例（从自然尺寸到显示尺寸）
+  const scaleX = img.naturalWidth / imgDisplayWidth
+  const scaleY = img.naturalHeight / imgDisplayHeight
+  
+  // 创建canvas来裁剪图片
+  const canvas = document.createElement('canvas')
+  canvas.width = cropBoxWidth // 预览图的尺寸就是裁剪框的尺寸
+  canvas.height = cropBoxHeight
+  const ctx = canvas.getContext('2d')
+  
+  // 绘制裁剪区域（从原始图片中裁剪）
+  ctx.drawImage(
+    img,
+    finalSourceX * scaleX, // 源图片的x坐标（自然尺寸）
+    finalSourceY * scaleY, // 源图片的y坐标（自然尺寸）
+    finalSourceWidth * scaleX, // 源图片的宽度（自然尺寸）
+    finalSourceHeight * scaleY, // 源图片的高度（自然尺寸）
+    0, // 目标canvas的x坐标
+    0, // 目标canvas的y坐标
+    cropBoxWidth, // 目标canvas的宽度
+    cropBoxHeight // 目标canvas的高度
+  )
+  
+  // 转换为base64
+  croppedPreviewImage.value = canvas.toDataURL('image/jpeg', 0.9)
+}
+
+// 生成其他预览图（从关键帧）
+const generatePreviewImages = () => {
+  // 竖屏：每行3个，显示6个预览（第一个是裁剪的，所以再生成5个）
+  // 横屏：每行2个，显示6个预览（第一个是裁剪的，所以再生成5个）
+  const count = 5
+  previewImages.value = []
+  
+  if (keyframes.value.length > 0) {
+    // 从关键帧中选择一些作为预览
+    const step = Math.max(1, Math.floor(keyframes.value.length / count))
+    for (let i = 0; i < count; i++) {
+      const index = i * step
+      if (index < keyframes.value.length) {
+        previewImages.value.push(keyframes.value[index])
+      } else {
+        previewImages.value.push('')
+      }
+    }
+  } else {
+    // 如果没有关键帧，显示空占位
+    previewImages.value = Array(count).fill('')
+  }
 }
 
 // 缩放值改变时的回调
@@ -608,6 +762,10 @@ const onScaleChange = () => {
   if (selectedKeyframe.value) {
     updateCropBox()
   }
+  // 缩放后更新裁剪预览
+  nextTick(() => {
+    generateCroppedPreview()
+  })
 }
 
 // 缩小（每次-10）
@@ -659,6 +817,8 @@ const setCoverRatio = (ratio) => {
   if (selectedKeyframe.value) {
     updateCropBox()
   }
+  // 重新生成预览图
+  generatePreviewImages()
 }
 
 // 更新图片样式（包括位置）
@@ -697,6 +857,16 @@ const updateImageStyle = (width, height) => {
     imageRendering: 'auto',
     WebkitImageRendering: 'auto',
     msInterpolationMode: 'bicubic'
+  }
+  
+  // 拖动时实时更新裁剪预览（节流）
+  if (isImageDragging.value) {
+    clearTimeout(window.previewUpdateTimer)
+    window.previewUpdateTimer = setTimeout(() => {
+      nextTick(() => {
+        generateCroppedPreview()
+      })
+    }, 50) // 50ms节流
   }
 }
 
@@ -763,6 +933,16 @@ const onImageDragMove = (e) => {
     left: `${imageLeft}px`,
     top: `${imageTop}px`
   }
+  
+  // 拖动时实时更新裁剪预览（使用 requestAnimationFrame 更流畅）
+  if (window.previewUpdateFrame) {
+    cancelAnimationFrame(window.previewUpdateFrame)
+  }
+  window.previewUpdateFrame = requestAnimationFrame(() => {
+    nextTick(() => {
+      generateCroppedPreview()
+    })
+  })
 }
 
 // 结束拖动图片
@@ -770,6 +950,17 @@ const endImageDrag = (e) => {
   isImageDragging.value = false
   document.removeEventListener('mousemove', onImageDragMove)
   document.removeEventListener('mouseup', endImageDrag)
+  
+  // 清除动画帧
+  if (window.previewUpdateFrame) {
+    cancelAnimationFrame(window.previewUpdateFrame)
+    window.previewUpdateFrame = null
+  }
+  
+  // 拖动结束后立即更新预览
+  nextTick(() => {
+    generateCroppedPreview()
+  })
 }
 
 // 打开图片导入选择框
@@ -795,6 +986,9 @@ const handleImageImport = (e) => {
       updateCropBox()
     }
   })
+  
+  // 生成预览图
+  generatePreviewImages()
 
   e.target.value = ''
 }
@@ -1706,38 +1900,70 @@ onUnmounted(() => {
 
 .preview-container {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  overflow-y: auto;
+  padding: 0;
 }
 
-.preview-placeholder {
+/* 预览图网格 */
+.preview-grid {
+  display: grid;
+  width: 100%;
+}
+
+/* 竖屏：每行3个（3列） */
+.preview-grid-vertical {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 横屏：每行2个（2列） */
+.preview-grid-horizontal {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 预览项 */
+.preview-item {
   width: 100%;
   padding-top: 133.33%; /* 3:4比例 */
-  border: 1px dashed #ccc;
+  background-color: #f5f5f5;
+  border: 2px solid #ddd;
   border-radius: 4px;
   position: relative;
-  background-color: #fff;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
-.preview-placeholder > div {
+.preview-item:hover {
+  border-color: #409eff;
+  transform: scale(1.02);
+}
+
+.preview-item-active {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
+}
+
+.preview-item-empty {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #909399;
+  color: #c0c4cc;
+  background-color: #fafafa;
+  z-index: 1;
+  pointer-events: none;
 }
 
-.preview-placeholder p {
-  margin-top: 8px;
-  font-size: 12px;
-  text-align: center;
-  padding: 0 8px;
+/* 横屏预览项（4:3比例） */
+.preview-grid-horizontal .preview-item {
+  padding-top: 75%; /* 4:3比例 */
 }
 
 /* 滚动条样式 */
