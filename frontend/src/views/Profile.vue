@@ -1,37 +1,37 @@
 <template>
-  <div class="profile-container">
-    <el-card class="profile-card">
+  <div class="p-20px">
+    <el-card class="max-w-800px mx-auto">
       <template #header>
-        <div class="card-header">
+        <div class="text-18px font-semibold">
           <span>个人中心</span>
         </div>
       </template>
 
-      <div class="profile-content">
+      <div class="py-20px">
         <!-- 头像区域 -->
-        <div class="avatar-section">
-          <div class="avatar-wrapper">
+        <div class="flex items-center gap-30px py-20px">
+          <div class="relative cursor-pointer">
             <el-avatar :size="120" :src="userAvatar">
               <el-icon :size="60"><User /></el-icon>
             </el-avatar>
-            <div class="avatar-overlay" @click="showAvatarDialog = true">
+            <div class="absolute inset-0 bg-black/50 rounded-full flex-col-center opacity-0 transition-opacity duration-300 hover:opacity-100 text-white" @click="showAvatarDialog = true">
               <el-icon :size="24"><Camera /></el-icon>
-              <span>更换头像</span>
+              <span class="text-12px mt-5px">更换头像</span>
             </div>
           </div>
-          <div class="user-info">
-            <h3>{{ user?.username || '用户' }}</h3>
-            <p>{{ user?.email || '未设置邮箱' }}</p>
+          <div>
+            <h3 class="m-0 mb-10px text-24px text-[#303133]">{{ user?.username || '用户' }}</h3>
+            <p class="m-0 text-[#909399] text-14px">{{ user?.email || '未设置邮箱' }}</p>
           </div>
         </div>
 
         <!-- 功能列表 -->
         <el-divider />
-        <div class="function-list">
-          <div class="function-item" @click="showChangePasswordDialog = true">
-            <el-icon><Lock /></el-icon>
-            <span>修改密码</span>
-            <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+        <div class="py-10px">
+          <div class="flex items-center px-15px py-15px cursor-pointer rounded-4px transition-colors duration-300 hover:bg-[#f5f7fa]" @click="showChangePasswordDialog = true">
+            <el-icon class="text-20px text-[#409EFF] mr-10px"><Lock /></el-icon>
+            <span class="flex-1 text-16px text-[#303133]">修改密码</span>
+            <el-icon class="text-[#c0c4cc]"><ArrowRight /></el-icon>
           </div>
         </div>
       </div>
@@ -44,7 +44,7 @@
       width="600px"
       :before-close="handleAvatarDialogClose"
     >
-      <div class="avatar-upload-content">
+      <div class="py-20px">
         <el-upload
           ref="uploadRef"
           :auto-upload="false"
@@ -65,8 +65,8 @@
         </el-upload>
 
         <!-- 图片裁剪区域 -->
-        <div v-if="imageUrl" class="crop-container">
-          <div class="crop-wrapper">
+        <div v-if="imageUrl" class="mt-20px">
+          <div class="relative inline-block border border-[#dcdfe6] rounded-4px overflow-hidden">
             <img
               ref="imageRef"
               :src="imageUrl"
@@ -87,9 +87,9 @@
               <div class="crop-handle crop-handle-se"></div>
             </div>
           </div>
-          <div class="crop-controls">
+          <div class="mt-20px text-right">
             <el-button @click="resetCrop">重置</el-button>
-            <el-button type="primary" @click="cropImage" :loading="uploading">
+            <el-button type="primary" @click="cropImage" :loading="uploading" class="ml-10px">
               确认裁剪
             </el-button>
           </div>
@@ -118,9 +118,8 @@
           >
             <template #suffix>
               <el-icon
-                class="password-icon"
+                class="text-[#909399] transition-colors duration-300 cursor-pointer hover:text-[#409EFF]"
                 @click="showOldPassword = !showOldPassword"
-                style="cursor: pointer;"
               >
                 <View v-if="showOldPassword" />
                 <Hide v-else />
@@ -137,20 +136,19 @@
           >
             <template #suffix>
               <el-icon
-                class="password-icon"
+                class="text-[#909399] transition-colors duration-300 cursor-pointer hover:text-[#409EFF]"
                 @click="showNewPassword = !showNewPassword"
-                style="cursor: pointer;"
               >
                 <View v-if="showNewPassword" />
                 <Hide v-else />
               </el-icon>
             </template>
           </el-input>
-          <div class="password-strength">
-            <div class="strength-item" :class="{ active: passwordStrength >= 1 }"></div>
-            <div class="strength-item" :class="{ active: passwordStrength >= 2 }"></div>
-            <div class="strength-item" :class="{ active: passwordStrength >= 3 }"></div>
-            <span class="strength-text">{{ passwordStrengthText }}</span>
+          <div class="flex items-center gap-5px mt-5px">
+            <div class="w-30px h-4px rounded-2px transition-colors duration-300" :class="passwordStrength >= 1 ? 'bg-[#67c23a]' : 'bg-[#dcdfe6]'"></div>
+            <div class="w-30px h-4px rounded-2px transition-colors duration-300" :class="passwordStrength >= 2 ? 'bg-[#67c23a]' : 'bg-[#dcdfe6]'"></div>
+            <div class="w-30px h-4px rounded-2px transition-colors duration-300" :class="passwordStrength >= 3 ? 'bg-[#67c23a]' : 'bg-[#dcdfe6]'"></div>
+            <span class="text-12px text-[#909399] ml-5px">{{ passwordStrengthText }}</span>
           </div>
         </el-form-item>
         <el-form-item label="确认密码" prop="confirmPassword">
@@ -163,9 +161,8 @@
           >
             <template #suffix>
               <el-icon
-                class="password-icon"
+                class="text-[#909399] transition-colors duration-300 cursor-pointer hover:text-[#409EFF]"
                 @click="showConfirmPassword = !showConfirmPassword"
-                style="cursor: pointer;"
               >
                 <View v-if="showConfirmPassword" />
                 <Hide v-else />
@@ -478,205 +475,35 @@ watch(showChangePasswordDialog, (val) => {
 </script>
 
 <style scoped>
-.profile-container {
-  padding: 20px;
-}
-
-.profile-card {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.card-header {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.profile-content {
-  padding: 20px 0;
-}
-
-.avatar-section {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-  padding: 20px 0;
-}
-
-.avatar-wrapper {
-  position: relative;
-  cursor: pointer;
-}
-
-.avatar-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 50%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.avatar-wrapper:hover .avatar-overlay {
-  opacity: 1;
-}
-
-.avatar-overlay span {
-  font-size: 12px;
-  margin-top: 5px;
-}
-
-.user-info h3 {
-  margin: 0 0 10px 0;
-  font-size: 24px;
-  color: #303133;
-}
-
-.user-info p {
-  margin: 0;
-  color: #909399;
-  font-size: 14px;
-}
-
-.function-list {
-  padding: 10px 0;
-}
-
-.function-item {
-  display: flex;
-  align-items: center;
-  padding: 15px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-}
-
-.function-item:hover {
-  background-color: #f5f7fa;
-}
-
-.function-item .el-icon {
-  font-size: 20px;
-  color: #409EFF;
-  margin-right: 10px;
-}
-
-.function-item span {
-  flex: 1;
-  font-size: 16px;
-  color: #303133;
-}
-
-.arrow-icon {
-  color: #c0c4cc !important;
-  margin-right: 0 !important;
-}
-
-.avatar-upload-content {
-  padding: 20px 0;
-}
-
-.crop-container {
-  margin-top: 20px;
-}
-
-.crop-wrapper {
-  position: relative;
-  display: inline-block;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
+/* 样式已迁移到 UnoCSS */
+/* 保留裁剪框的复杂样式 */
 .crop-box {
-  position: absolute;
-  border: 2px solid #409EFF;
+  @apply absolute border-2 border-[#409EFF] cursor-move;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-  cursor: move;
 }
 
 .crop-handle {
-  position: absolute;
-  width: 10px;
-  height: 10px;
-  background: #409EFF;
-  border: 2px solid white;
-  border-radius: 50%;
+  @apply absolute w-10px h-10px bg-[#409EFF] border-2 border-white rounded-full;
 }
 
 .crop-handle-nw {
-  top: -5px;
-  left: -5px;
+  @apply -top-5px -left-5px;
   cursor: nw-resize;
 }
 
 .crop-handle-ne {
-  top: -5px;
-  right: -5px;
+  @apply -top-5px -right-5px;
   cursor: ne-resize;
 }
 
 .crop-handle-sw {
-  bottom: -5px;
-  left: -5px;
+  @apply -bottom-5px -left-5px;
   cursor: sw-resize;
 }
 
 .crop-handle-se {
-  bottom: -5px;
-  right: -5px;
+  @apply -bottom-5px -right-5px;
   cursor: se-resize;
-}
-
-.crop-controls {
-  margin-top: 20px;
-  text-align: right;
-}
-
-.crop-controls .el-button {
-  margin-left: 10px;
-}
-
-.password-icon {
-  color: #909399;
-  transition: color 0.3s;
-}
-
-.password-icon:hover {
-  color: #409EFF;
-}
-
-.password-strength {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 5px;
-}
-
-.strength-item {
-  width: 30px;
-  height: 4px;
-  background: #dcdfe6;
-  border-radius: 2px;
-  transition: background-color 0.3s;
-}
-
-.strength-item.active {
-  background: #67c23a;
-}
-
-.strength-text {
-  font-size: 12px;
-  color: #909399;
-  margin-left: 5px;
 }
 </style>
 

@@ -1,30 +1,30 @@
 <template>
   <el-card
-    class="cover-card"
+    class="transition-transform duration-300 cursor-pointer hover:translate-y--5px"
     :body-style="{ padding: '10px' }"
     shadow="hover"
   >
-    <div class="cover-image-wrapper" @click="$emit('preview', cover)">
+    <div class="w-full h-200px overflow-hidden rounded-4px bg-[#f5f7fa] mb-10px relative" @click="$emit('preview', cover)">
       <img 
         :src="imageUrl" 
         :alt="cover.name"
-        class="cover-image"
+        class="w-full h-full object-cover"
         @error="handleImageError"
       />
-      <div v-if="cover.video_path" class="video-badge">
+      <div v-if="cover.video_path" class="absolute top-10px right-10px bg-black/60 text-white px-10px py-5px rounded-4px text-12px">
         <el-icon><VideoPlay /></el-icon>
       </div>
     </div>
-    <div class="cover-info">
-      <div class="cover-name">{{ cover.name }}</div>
-      <div class="cover-meta">
+    <div class="mb-10px">
+      <div class="text-16px font-medium text-[#303133] mb-5px overflow-hidden text-ellipsis whitespace-nowrap">{{ cover.name }}</div>
+      <div class="text-12px text-[#909399]">
         <span class="cover-date">{{ formatDate(cover.created_at) }}</span>
         <el-tag :type="cover.status === 1 ? 'success' : 'info'" size="small" style="margin-left: 8px">
           {{ cover.status === 1 ? '启用' : '禁用' }}
         </el-tag>
       </div>
     </div>
-    <div class="cover-actions">
+    <div class="flex gap-10px justify-end">
       <el-button 
         type="primary" 
         :icon="Edit" 
@@ -75,66 +75,7 @@ const imageUrl = computed(() => {
 </script>
 
 <style scoped>
-.cover-card {
-  transition: transform 0.3s;
-  cursor: pointer;
-}
-
-.cover-card:hover {
-  transform: translateY(-5px);
-}
-
-.cover-image-wrapper {
-  width: 100%;
-  height: 200px;
-  overflow: hidden;
-  border-radius: 4px;
-  background-color: #f5f7fa;
-  margin-bottom: 10px;
-  position: relative;
-}
-
-.cover-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.video-badge {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.cover-info {
-  margin-bottom: 10px;
-}
-
-.cover-name {
-  font-size: 16px;
-  font-weight: 500;
-  color: #303133;
-  margin-bottom: 5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cover-meta {
-  font-size: 12px;
-  color: #909399;
-}
-
-.cover-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
+/* 样式已迁移到 UnoCSS */
 </style>
 
 

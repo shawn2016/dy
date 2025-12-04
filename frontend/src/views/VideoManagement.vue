@@ -1,14 +1,14 @@
 <template>
-  <div class="video-management">
-    <el-card class="page-card">
+  <div class="h-full">
+    <el-card class="min-h-[calc(100vh-120px)]">
       <template #header>
-        <div class="card-header">
-          <span class="page-title">视频管理</span>
+        <div class="flex-between items-center">
+          <span class="text-20px font-semibold text-[#303133]">视频管理</span>
           <el-button 
             type="primary" 
             :icon="Plus" 
             @click="handleAdd"
-            class="add-button"
+            class="ml-auto"
           >
             新增
           </el-button>
@@ -16,7 +16,7 @@
       </template>
 
       <!-- 搜索栏 -->
-      <div class="search-bar">
+      <div class="mb-20px">
         <el-input
           v-model="searchKeyword"
           placeholder="搜索视频名称"
@@ -28,34 +28,34 @@
       </div>
 
       <!-- 视频列表 -->
-      <div class="video-list" v-loading="loading">
+      <div class="min-h-400px" v-loading="loading">
         <el-empty v-if="filteredVideos.length === 0 && !loading" description="暂无视频数据" />
-        <div v-else class="video-grid">
+        <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-20px">
           <el-card
             v-for="video in filteredVideos"
             :key="video.id"
-            class="video-card"
+            class="transition-transform duration-300 cursor-pointer hover:translate-y--5px"
             :body-style="{ padding: '10px' }"
             shadow="hover"
           >
-            <div class="video-thumbnail-wrapper">
+            <div class="w-full h-200px overflow-hidden rounded-4px bg-[#f5f7fa] mb-10px relative">
               <img 
                 :src="video.thumbnail_url || '/placeholder.png'" 
                 :alt="video.name"
-                class="video-thumbnail"
+                class="w-full h-full object-cover"
                 @error="handleImageError"
               />
-              <div class="video-duration" v-if="video.duration">
+              <div class="absolute bottom-5px right-5px bg-black/70 text-white px-6px py-2px rounded-2px text-12px" v-if="video.duration">
                 {{ formatDuration(video.duration) }}
               </div>
             </div>
-            <div class="video-info">
-              <div class="video-name">{{ video.name }}</div>
-              <div class="video-meta">
+            <div class="mb-10px">
+              <div class="text-16px font-medium text-[#303133] mb-5px overflow-hidden text-ellipsis whitespace-nowrap">{{ video.name }}</div>
+              <div class="text-12px text-[#909399]">
                 <span class="video-date">{{ formatDate(video.created_at) }}</span>
               </div>
             </div>
-            <div class="video-actions">
+            <div class="flex gap-10px justify-end">
               <el-button 
                 type="primary" 
                 :icon="Edit" 
@@ -99,8 +99,8 @@
         </el-form-item>
         <el-form-item label="封面图" prop="thumbnail_url">
           <el-input v-model="formData.thumbnail_url" placeholder="请输入封面图URL" />
-          <div v-if="formData.thumbnail_url" class="image-preview">
-            <img :src="formData.thumbnail_url" alt="预览" @error="handleImageError" />
+          <div v-if="formData.thumbnail_url" class="mt-10px w-full h-200px rounded-4px overflow-hidden bg-[#f5f7fa]">
+            <img :src="formData.thumbnail_url" alt="预览" class="w-full h-full object-cover" @error="handleImageError" />
           </div>
         </el-form-item>
         <el-form-item label="时长(秒)" prop="duration">
@@ -316,119 +316,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.video-management {
-  height: 100%;
-}
-
-.page-card {
-  min-height: calc(100vh - 120px);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.add-button {
-  margin-left: auto;
-}
-
-.search-bar {
-  margin-bottom: 20px;
-}
-
-.video-list {
-  min-height: 400px;
-}
-
-.video-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.video-card {
-  transition: transform 0.3s;
-  cursor: pointer;
-}
-
-.video-card:hover {
-  transform: translateY(-5px);
-}
-
-.video-thumbnail-wrapper {
-  width: 100%;
-  height: 200px;
-  overflow: hidden;
-  border-radius: 4px;
-  background-color: #f5f7fa;
-  margin-bottom: 10px;
-  position: relative;
-}
-
-.video-thumbnail {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.video-duration {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  background-color: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 2px 6px;
-  border-radius: 2px;
-  font-size: 12px;
-}
-
-.video-info {
-  margin-bottom: 10px;
-}
-
-.video-name {
-  font-size: 16px;
-  font-weight: 500;
-  color: #303133;
-  margin-bottom: 5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.video-meta {
-  font-size: 12px;
-  color: #909399;
-}
-
-.video-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
-.image-preview {
-  margin-top: 10px;
-  width: 100%;
-  height: 200px;
-  border-radius: 4px;
-  overflow: hidden;
-  background-color: #f5f7fa;
-}
-
-.image-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+/* 样式已迁移到 UnoCSS */
 </style>
 
 

@@ -1,18 +1,40 @@
 <template>
   <!-- 登录、注册、忘记密码页面独立显示，不显示菜单和头部 -->
   <router-view v-if="isAuthPage" />
-  <el-container v-else class="app-container">
-    <el-header class="app-header">
-      <div class="header-content">
-        <h1>视频封面管理系统</h1>
-        <div class="header-right">
+  <el-container v-else class="h-screen">
+    <el-header class="bg-gradient-to-r from-[#667eea] to-[#764ba2] text-white flex items-center px-20px shadow-[0_2px_8px_rgba(0,0,0,0.1)]">
+      <div class="flex-between items-center w-full">
+        <h1 class="m-0 text-24px font-medium">视频封面管理系统</h1>
+        <div class="flex items-center gap-3">
+          <!-- 主题切换按钮 -->
+          <el-tooltip :content="themeStore.isDark ? '切换到亮色模式' : '切换到暗黑模式'" placement="bottom">
+            <el-button
+              :icon="themeStore.isDark ? Sunny : Moon"
+              circle
+              @click="themeStore.toggleTheme()"
+              style="color: white; border: none; background: transparent;"
+              class="hover:bg-white/10"
+            />
+          </el-tooltip>
+          
+          <!-- 设置按钮 -->
+          <el-tooltip content="设置" placement="bottom">
+            <el-button
+              :icon="Setting"
+              circle
+              @click="settingsStore.toggleSettings()"
+              style="color: white; border: none; background: transparent;"
+              class="hover:bg-white/10"
+            />
+          </el-tooltip>
+          
           <el-dropdown @command="handleCommand" trigger="click">
-            <div class="user-info">
+            <div class="flex items-center cursor-pointer px-10px py-5px rounded-4px transition-colors duration-300 hover:bg-white/10">
               <el-avatar :size="36" :src="userAvatar">
                 <el-icon><User /></el-icon>
               </el-avatar>
-              <span class="username">{{ user?.username || '用户' }}</span>
-              <el-icon class="arrow-icon"><ArrowDown /></el-icon>
+              <span class="mx-8px text-14px">{{ user?.username || '用户' }}</span>
+              <el-icon class="text-12px transition-transform duration-300"><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -31,12 +53,12 @@
       </div>
     </el-header>
     <el-container>
-      <el-aside width="200px" class="app-aside">
+      <el-aside width="200px" class="bg-[#304156] dark:bg-[#1f2937] overflow-hidden">
         <el-menu
           :default-active="activeMenu"
-          class="sidebar-menu"
+          class="border-r-0 h-full"
           router
-          background-color="#304156"
+          :background-color="themeStore.isDark ? '#1f2937' : '#304156'"
           text-color="#bfcbd9"
           active-text-color="#409EFF"
         >
@@ -50,10 +72,13 @@
           </el-menu-item>
         </el-menu>
       </el-aside>
-      <el-main class="app-main">
+      <el-main class="bg-[#f5f7fa] dark:bg-[#1d1e1f] p-20px overflow-y-auto">
         <router-view />
       </el-main>
     </el-container>
+    
+    <!-- 设置面板 -->
+    <SettingsPanel />
   </el-container>
 </template>
 
@@ -61,13 +86,18 @@
 import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Picture, VideoPlay, User, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
+import { Picture, VideoPlay, User, ArrowDown, SwitchButton, Sunny, Moon, Setting } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
+import { useSettingsStore } from '@/stores/settings'
+import SettingsPanel from '@/components/SettingsPanel.vue'
 import { logout } from '@/api/auth'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
+const settingsStore = useSettingsStore()
 
 // 需要独立显示的认证相关页面（不显示菜单和头部）
 const authPages = ['/login', '/register', '/forgot-password']
@@ -125,88 +155,24 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.app-container {
-  height: 100vh;
-}
-
-.app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.header-content h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 500;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  padding: 5px 10px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
-}
-
-.user-info:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.username {
-  margin: 0 8px;
-  font-size: 14px;
-}
-
-.arrow-icon {
-  font-size: 12px;
-  transition: transform 0.3s;
-}
-
-.app-aside {
-  background-color: #304156;
-  overflow: hidden;
-}
-
-.sidebar-menu {
-  border-right: none;
-  height: 100%;
-}
-
-.sidebar-menu .el-menu-item {
+/* 样式已迁移到 UnoCSS */
+/* 保留 Element Plus 菜单项的自定义样式 */
+.sidebar-menu :deep(.el-menu-item) {
   height: 50px;
   line-height: 50px;
 }
 
-.sidebar-menu .el-menu-item:hover {
+.sidebar-menu :deep(.el-menu-item:hover) {
   background-color: #263445 !important;
 }
 
-.sidebar-menu .el-menu-item.is-active {
-  background-color: #1890ff !important;
-  color: #fff !important;
+.dark .sidebar-menu :deep(.el-menu-item:hover) {
+  background-color: #374151 !important;
 }
 
-.app-main {
-  background-color: #f5f7fa;
-  padding: 20px;
-  overflow-y: auto;
+.sidebar-menu :deep(.el-menu-item.is-active) {
+  background-color: #1890ff !important;
+  color: #fff !important;
 }
 </style>
 

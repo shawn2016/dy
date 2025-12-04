@@ -1,14 +1,14 @@
 <template>
-  <div class="cover-management">
-    <el-card class="page-card">
+  <div class="h-full">
+    <el-card class="min-h-[calc(100vh-120px)]">
       <template #header>
-        <div class="card-header">
-          <span class="page-title">封面管理</span>
+        <div class="flex-between items-center">
+          <span class="text-20px font-semibold text-[#303133] dark:text-[#e5eaf3]">封面管理</span>
           <el-button 
             type="primary" 
             :icon="Plus" 
             @click="handleAdd"
-            class="add-button"
+            class="ml-auto"
           >
             新增
           </el-button>
@@ -16,7 +16,7 @@
       </template>
 
       <!-- 查询条件栏 -->
-      <div class="search-bar">
+      <div class="mb-20px">
         <el-form :inline="true" :model="queryParams" class="search-form">
           <el-form-item label="封面名称">
             <el-input
@@ -69,39 +69,39 @@
       </div>
 
       <!-- 封面列表 -->
-      <div class="cover-list" v-loading="loading">
+      <div class="min-h-400px" v-loading="loading">
         <el-empty v-if="coverList.length === 0 && !loading" description="暂无封面数据" />
         
         <!-- 卡片视图 -->
-        <div v-else-if="viewMode === 'card'" class="cover-grid">
+        <div v-else-if="viewMode === 'card'" class="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-20px">
           <el-card
             v-for="cover in coverList"
             :key="cover.id"
-            class="cover-card"
+            class="transition-transform duration-300 cursor-pointer hover:translate-y--5px"
             :body-style="{ padding: '10px' }"
             shadow="hover"
           >
-            <div class="cover-image-wrapper" @click="handlePreview(cover)">
+            <div class="w-full h-200px overflow-hidden rounded-4px bg-[#f5f7fa] mb-10px" @click="handlePreview(cover)">
               <img 
                 :src="getImageUrl(cover.cropped_image_path || cover.image_url)" 
                 :alt="cover.name"
-                class="cover-image"
+                class="w-full h-full object-cover"
                 @error="handleImageError"
               />
               <div v-if="cover.video_path" class="video-badge">
                 <el-icon><VideoPlay /></el-icon>
               </div>
             </div>
-            <div class="cover-info">
-              <div class="cover-name">{{ cover.name }}</div>
-              <div class="cover-meta">
+            <div class="mb-10px">
+              <div class="text-16px font-medium text-[#303133] mb-5px overflow-hidden text-ellipsis whitespace-nowrap">{{ cover.name }}</div>
+              <div class="text-12px text-[#909399]">
                 <span class="cover-date">{{ formatDate(cover.created_at) }}</span>
                 <el-tag :type="cover.status === 1 ? 'success' : 'info'" size="small" style="margin-left: 8px">
                   {{ cover.status === 1 ? '启用' : '禁用' }}
                 </el-tag>
               </div>
             </div>
-            <div class="cover-actions">
+            <div class="flex gap-10px justify-end">
               <el-button 
                 type="primary" 
                 :icon="Edit" 
@@ -192,7 +192,7 @@
         <!-- 分页 -->
         <div class="pagination-wrapper" v-if="total > 0">
           <el-pagination
-            v-model:current-page="pagination.page"
+            v-model:current-page="pagination.currentPage"
             v-model:page-size="pagination.pageSize"
             :page-sizes="[10, 20, 50, 100]"
             :total="total"
@@ -466,6 +466,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useCoverList } from '@/composables/useCoverList'
 import { 
   Plus, Edit, Delete, Search, UploadFilled, Refresh, Grid, List, VideoPlay 
 } from '@element-plus/icons-vue'
@@ -476,33 +477,31 @@ import {
 
 const router = useRouter()
 
-const loading = ref(false)
+// 使用 composable
+const {
+  loading,
+  coverList,
+  total,
+  queryParams,
+  pagination,
+  dateRange,
+  loadCovers,
+  handleQuery,
+  handleReset,
+  handlePageChange,
+  handleSizeChange,
+  handleDelete,
+} = useCoverList()
+
 const submitting = ref(false)
 const dialogVisible = ref(false)
 const formRef = ref(null)
 const isEdit = ref(false)
-const viewMode = ref('card') // 'card' | 'list'
+const viewMode = ref<'card' | 'list'>('card') // 'card' | 'list'
 const currentStep = ref(0) // 步骤：0-上传, 1-裁剪, 2-标题, 3-视频, 4-保存
 const generatingVideo = ref(false)
 const previewDialogVisible = ref(false)
 const previewVideoUrl = ref('')
-
-// 查询参数
-const queryParams = ref({
-  name: '',
-  start_time: '',
-  end_time: '',
-  status: null
-})
-const dateRange = ref([])
-
-// 分页参数
-const pagination = ref({
-  page: 1,
-  pageSize: 10
-})
-const total = ref(0)
-const coverList = ref([])
 
 // 表单数据
 const formData = ref({
@@ -581,63 +580,7 @@ const dialogTitle = computed(() => {
   return isEdit.value ? '编辑封面' : '新增封面'
 })
 
-// 加载封面列表
-const loadCovers = async () => {
-  loading.value = true
-  try {
-    const params = {
-      page: pagination.value.page,
-      page_size: pagination.value.pageSize,
-      ...queryParams.value
-    }
-    
-    if (dateRange.value && dateRange.value.length === 2) {
-      params.start_time = dateRange.value[0]
-      params.end_time = dateRange.value[1]
-    }
-    
-    const response = await getCovers(params)
-    if (response.data) {
-      coverList.value = response.data.list || []
-      total.value = response.data.total || 0
-    }
-  } catch (error) {
-    ElMessage.error('加载封面列表失败')
-    console.error(error)
-  } finally {
-    loading.value = false
-  }
-}
-
-// 查询
-const handleQuery = () => {
-  pagination.value.page = 1
-  loadCovers()
-}
-
-// 重置查询
-const handleReset = () => {
-  queryParams.value = {
-    name: '',
-    start_time: '',
-    end_time: '',
-    status: null
-  }
-  dateRange.value = []
-  handleQuery()
-}
-
-// 分页变化
-const handlePageChange = (page) => {
-  pagination.value.page = page
-  loadCovers()
-}
-
-const handleSizeChange = (size) => {
-  pagination.value.pageSize = size
-  pagination.value.page = 1
-  loadCovers()
-}
+// 函数已从 useCoverList composable 中导入
 
 // 新增 - 跳转到封面设置页面
 const handleAdd = () => {
@@ -802,29 +745,7 @@ const resetTitlePosition = () => {
   }
 }
 
-// 删除
-const handleDelete = async (cover) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除封面"${cover.name}"吗？`,
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
-    await deleteCover(cover.id)
-    ElMessage.success('删除成功')
-    loadCovers()
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除失败')
-      console.error(error)
-    }
-  }
-}
+// 删除函数已从 useCoverList composable 中导入
 
 // 提交表单
 const handleSubmit = async () => {
@@ -857,7 +778,7 @@ const handleSubmit = async () => {
     
     dialogVisible.value = false
     currentStep.value = 0
-    loadCovers()
+    loadCovers() // 从 composable 导入
   } catch (error) {
     if (error !== false) {
       ElMessage.error(isEdit.value ? '更新失败' : '创建失败')
@@ -1225,110 +1146,72 @@ onMounted(() => {
   color: #909399;
 }
 
-.cover-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
+/* 简单样式已迁移到 UnoCSS，复杂样式使用 @apply */
 
+/* 复杂样式保留，简单样式已迁移到 UnoCSS */
 .cover-upload {
-  width: 100%;
+  @apply w-full;
 }
 
 .crop-container {
-  margin-top: 20px;
+  @apply mt-20px;
 }
 
 .crop-wrapper {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  overflow: hidden;
-  background-color: #f5f7fa;
-  min-height: 400px;
-  max-height: 600px;
+  @apply relative flex-center border border-[#dcdfe6] rounded-4px overflow-hidden bg-[#f5f7fa] min-h-400px max-h-600px;
 }
 
 .crop-image {
-  max-width: 100%;
-  max-height: 600px;
-  display: block;
+  @apply max-w-full max-h-600px block;
 }
 
 .crop-box {
-  position: absolute;
-  border: 2px solid #409EFF;
+  @apply absolute border-2 border-[#409EFF] cursor-move box-border;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
-  cursor: move;
-  box-sizing: border-box;
 }
 
 .crop-handle {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  background: #409EFF;
-  border: 2px solid white;
-  border-radius: 50%;
-  z-index: 10;
+  @apply absolute w-12px h-12px bg-[#409EFF] border-2 border-white rounded-full z-10;
 }
 
 .crop-handle-nw {
-  top: -6px;
-  left: -6px;
+  @apply -top-6px -left-6px;
   cursor: nw-resize;
 }
 
 .crop-handle-ne {
-  top: -6px;
-  right: -6px;
+  @apply -top-6px -right-6px;
   cursor: ne-resize;
 }
 
 .crop-handle-sw {
-  bottom: -6px;
-  left: -6px;
+  @apply -bottom-6px -left-6px;
   cursor: sw-resize;
 }
 
 .crop-handle-se {
-  bottom: -6px;
-  right: -6px;
+  @apply -bottom-6px -right-6px;
   cursor: se-resize;
 }
 
 .crop-controls {
-  margin-top: 20px;
-  text-align: right;
+  @apply mt-20px text-right;
 }
 
 .crop-controls .el-button {
-  margin-left: 10px;
+  @apply ml-10px;
 }
 
 .image-preview {
-  margin-top: 10px;
-  width: 100%;
-  height: 200px;
-  border-radius: 4px;
-  overflow: hidden;
-  background-color: #f5f7fa;
-  position: relative;
+  @apply mt-10px w-full h-200px rounded-4px overflow-hidden bg-[#f5f7fa] relative;
 }
 
 .image-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  @apply w-full h-full object-cover;
 }
 
 .image-preview-actions {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  @apply absolute top-10px right-10px;
 }
 </style>
 

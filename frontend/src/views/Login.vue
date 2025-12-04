@@ -1,15 +1,37 @@
 <template>
-  <div class="login-container">
-    <div class="login-box">
-      <div class="login-header">
-        <h2>视频封面管理系统</h2>
-        <p>欢迎登录</p>
+  <div class="flex-center min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2] dark:from-[#1a1a2e] dark:to-[#16213e] relative">
+    <!-- 登录页面也显示主题和设置按钮 -->
+    <div class="absolute top-4 right-4 flex items-center gap-2 z-10">
+      <el-tooltip :content="themeStore.isDark ? '切换到亮色模式' : '切换到暗黑模式'" placement="bottom">
+        <el-button
+          :icon="themeStore.isDark ? Sunny : Moon"
+          circle
+          @click="themeStore.toggleTheme()"
+          style="color: white; border: none; background: rgba(255,255,255,0.2);"
+          class="hover:bg-white/30"
+        />
+      </el-tooltip>
+      <el-tooltip content="设置" placement="bottom">
+        <el-button
+          :icon="Setting"
+          circle
+          @click="settingsStore.toggleSettings()"
+          style="color: white; border: none; background: rgba(255,255,255,0.2);"
+          class="hover:bg-white/30"
+        />
+      </el-tooltip>
+    </div>
+    
+    <div class="w-400px p-40px bg-white dark:bg-[#2d2d2d] rounded-10px shadow-[0_10px_40px_rgba(0,0,0,0.2)]">
+      <div class="text-center mb-30px">
+        <h2 class="m-0 mb-10px text-[#303133] dark:text-[#e5eaf3] text-28px font-semibold">视频封面管理系统</h2>
+        <p class="m-0 text-[#909399] dark:text-[#a8abb2] text-14px">欢迎登录</p>
       </div>
       <el-form
         ref="loginFormRef"
         :model="loginForm"
         :rules="loginRules"
-        class="login-form"
+        class="mt-30px"
       >
         <el-form-item prop="username">
           <el-input
@@ -30,9 +52,8 @@
           >
             <template #suffix>
               <el-icon
-                class="password-icon"
+                class="text-[#909399] transition-colors duration-300 cursor-pointer hover:text-[#409EFF]"
                 @click="togglePassword"
-                style="cursor: pointer;"
               >
                 <View v-if="showPassword" />
                 <Hide v-else />
@@ -46,20 +67,23 @@
             size="large"
             :loading="loading"
             @click="handleLogin"
-            class="login-button"
+            class="w-full mt-10px"
           >
             登录
           </el-button>
         </el-form-item>
-        <el-form-item class="login-links">
-          <div class="links-container">
-            <span class="link-text" @click="goToForgotPassword">忘记密码？</span>
-            <span class="divider">|</span>
-            <span class="link-text" @click="goToRegister">注册账号</span>
+        <el-form-item class="mt-10px mb-0">
+          <div class="flex-center gap-10px w-full text-14px">
+            <span class="text-[#409EFF] cursor-pointer transition-colors duration-300 hover:text-[#66b1ff] hover:underline" @click="goToForgotPassword">忘记密码？</span>
+            <span class="text-[#dcdfe6]">|</span>
+            <span class="text-[#409EFF] cursor-pointer transition-colors duration-300 hover:text-[#66b1ff] hover:underline" @click="goToRegister">注册账号</span>
           </div>
         </el-form-item>
       </el-form>
     </div>
+    
+    <!-- 设置面板 -->
+    <SettingsPanel />
   </div>
 </template>
 
@@ -155,85 +179,6 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.login-box {
-  width: 400px;
-  padding: 40px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-}
-
-.login-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.login-header h2 {
-  margin: 0 0 10px 0;
-  color: #303133;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.login-header p {
-  margin: 0;
-  color: #909399;
-  font-size: 14px;
-}
-
-.login-form {
-  margin-top: 30px;
-}
-
-.login-button {
-  width: 100%;
-  margin-top: 10px;
-}
-
-.password-icon {
-  color: #909399;
-  transition: color 0.3s;
-}
-
-.password-icon:hover {
-  color: #409EFF;
-}
-
-.login-links {
-  margin-top: 10px;
-  margin-bottom: 0;
-}
-
-.links-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  font-size: 14px;
-}
-
-.link-text {
-  color: #409EFF;
-  cursor: pointer;
-  transition: color 0.3s;
-}
-
-.link-text:hover {
-  color: #66b1ff;
-  text-decoration: underline;
-}
-
-.divider {
-  color: #dcdfe6;
-}
+/* 样式已迁移到 UnoCSS */
 </style>
 

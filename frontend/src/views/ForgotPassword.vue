@@ -1,21 +1,21 @@
 <template>
-  <div class="forgot-password-container">
-    <div class="forgot-password-box">
-      <div class="forgot-password-header">
-        <h2>找回密码</h2>
-        <p>请选择找回方式</p>
+  <div class="flex-center min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2] p-20px">
+    <div class="w-500px p-40px bg-white rounded-10px shadow-[0_10px_40px_rgba(0,0,0,0.2)]">
+      <div class="text-center mb-30px">
+        <h2 class="m-0 mb-10px text-[#303133] text-28px font-semibold">找回密码</h2>
+        <p class="m-0 text-[#909399] text-14px">请选择找回方式</p>
       </div>
       
       <!-- 步骤指示器 -->
-      <el-steps :active="currentStep" finish-status="success" class="steps">
+      <el-steps :active="currentStep" finish-status="success" class="mb-30px">
         <el-step title="验证身份" />
         <el-step title="重置密码" />
         <el-step title="完成" />
       </el-steps>
 
       <!-- 步骤1: 选择验证方式 -->
-      <div v-if="currentStep === 0" class="step-content">
-        <el-radio-group v-model="verifyType" class="verify-type-group">
+      <div v-if="currentStep === 0" class="mt-30px">
+        <el-radio-group v-model="verifyType" class="w-full mb-20px flex-center gap-30px">
           <el-radio label="phone">手机号验证</el-radio>
           <el-radio label="email">邮箱验证</el-radio>
         </el-radio-group>
@@ -51,18 +51,18 @@
             />
           </el-form-item>
           <el-form-item prop="code">
-            <div class="code-input-group">
+            <div class="flex gap-10px">
               <el-input
                 v-model="verifyForm.code"
                 placeholder="请输入验证码"
                 :prefix-icon="Key"
                 size="large"
-                class="code-input"
+                class="flex-1"
               />
               <el-button
                 :disabled="codeCountdown > 0"
                 @click="sendCode"
-                class="code-button"
+                class="whitespace-nowrap"
               >
                 {{ codeCountdown > 0 ? `${codeCountdown}秒后重试` : '发送验证码' }}
               </el-button>
@@ -74,7 +74,7 @@
               size="large"
               :loading="loading"
               @click="handleVerify"
-              class="action-button"
+              class="w-full mt-10px"
             >
               下一步
             </el-button>
@@ -83,7 +83,7 @@
       </div>
 
       <!-- 步骤2: 重置密码 -->
-      <div v-if="currentStep === 1" class="step-content">
+      <div v-if="currentStep === 1" class="mt-30px">
         <el-form
           ref="resetFormRef"
           :model="resetForm"
@@ -99,11 +99,10 @@
               size="large"
             >
               <template #suffix>
-                <el-icon
-                  class="password-icon"
-                  @click="togglePassword"
-                  style="cursor: pointer;"
-                >
+              <el-icon
+                class="text-[#909399] transition-colors duration-300 cursor-pointer hover:text-[#409EFF]"
+                @click="togglePassword"
+              >
                   <View v-if="showPassword" />
                   <Hide v-else />
                 </el-icon>
@@ -120,11 +119,10 @@
               @keyup.enter="handleReset"
             >
               <template #suffix>
-                <el-icon
-                  class="password-icon"
-                  @click="toggleConfirmPassword"
-                  style="cursor: pointer;"
-                >
+              <el-icon
+                class="text-[#909399] transition-colors duration-300 cursor-pointer hover:text-[#409EFF]"
+                @click="toggleConfirmPassword"
+              >
                   <View v-if="showConfirmPassword" />
                   <Hide v-else />
                 </el-icon>
@@ -137,7 +135,7 @@
               size="large"
               :loading="loading"
               @click="handleReset"
-              class="action-button"
+              class="w-full mt-10px"
             >
               重置密码
             </el-button>
@@ -146,7 +144,7 @@
       </div>
 
       <!-- 步骤3: 完成 -->
-      <div v-if="currentStep === 2" class="step-content success-content">
+      <div v-if="currentStep === 2" class="mt-30px py-20px">
         <el-result
           icon="success"
           title="密码重置成功"
@@ -158,8 +156,8 @@
         </el-result>
       </div>
 
-      <div class="back-link">
-        <span class="link-text" @click="goToLogin">返回登录</span>
+      <div class="text-center mt-20px">
+        <span class="text-[#409EFF] cursor-pointer text-14px transition-colors duration-300 hover:text-[#66b1ff] hover:underline" @click="goToLogin">返回登录</span>
       </div>
     </div>
   </div>
@@ -341,104 +339,7 @@ const handleReset = async () => {
 </script>
 
 <style scoped>
-.forgot-password-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px;
-}
-
-.forgot-password-box {
-  width: 500px;
-  padding: 40px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-}
-
-.forgot-password-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.forgot-password-header h2 {
-  margin: 0 0 10px 0;
-  color: #303133;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.forgot-password-header p {
-  margin: 0;
-  color: #909399;
-  font-size: 14px;
-}
-
-.steps {
-  margin-bottom: 30px;
-}
-
-.step-content {
-  margin-top: 30px;
-}
-
-.verify-type-group {
-  width: 100%;
-  margin-bottom: 20px;
-  display: flex;
-  justify-content: center;
-  gap: 30px;
-}
-
-.code-input-group {
-  display: flex;
-  gap: 10px;
-}
-
-.code-input {
-  flex: 1;
-}
-
-.code-button {
-  white-space: nowrap;
-}
-
-.action-button {
-  width: 100%;
-  margin-top: 10px;
-}
-
-.password-icon {
-  color: #909399;
-  transition: color 0.3s;
-}
-
-.password-icon:hover {
-  color: #409EFF;
-}
-
-.success-content {
-  padding: 20px 0;
-}
-
-.back-link {
-  text-align: center;
-  margin-top: 20px;
-}
-
-.link-text {
-  color: #409EFF;
-  cursor: pointer;
-  font-size: 14px;
-  transition: color 0.3s;
-}
-
-.link-text:hover {
-  color: #66b1ff;
-  text-decoration: underline;
-}
+/* 样式已迁移到 UnoCSS */
 </style>
 
 

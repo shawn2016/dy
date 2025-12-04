@@ -1,15 +1,15 @@
 <template>
-  <div class="register-container">
-    <div class="register-box">
-      <div class="register-header">
-        <h2>注册账号</h2>
-        <p>创建您的账号</p>
+  <div class="flex-center min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2]">
+    <div class="w-450px p-40px bg-white rounded-10px shadow-[0_10px_40px_rgba(0,0,0,0.2)]">
+      <div class="text-center mb-30px">
+        <h2 class="m-0 mb-10px text-[#303133] text-28px font-semibold">注册账号</h2>
+        <p class="m-0 text-[#909399] text-14px">创建您的账号</p>
       </div>
       <el-form
         ref="registerFormRef"
         :model="registerForm"
         :rules="registerRules"
-        class="register-form"
+        class="mt-30px"
       >
         <el-form-item prop="username">
           <el-input
@@ -45,9 +45,8 @@
           >
             <template #suffix>
               <el-icon
-                class="password-icon"
+                class="text-[#909399] transition-colors duration-300 cursor-pointer hover:text-[#409EFF]"
                 @click="togglePassword"
-                style="cursor: pointer;"
               >
                 <View v-if="showPassword" />
                 <Hide v-else />
@@ -66,9 +65,8 @@
           >
             <template #suffix>
               <el-icon
-                class="password-icon"
+                class="text-[#909399] transition-colors duration-300 cursor-pointer hover:text-[#409EFF]"
                 @click="toggleConfirmPassword"
-                style="cursor: pointer;"
               >
                 <View v-if="showConfirmPassword" />
                 <Hide v-else />
@@ -82,14 +80,14 @@
             size="large"
             :loading="loading"
             @click="handleRegister"
-            class="register-button"
+            class="w-full mt-10px"
           >
             注册
           </el-button>
         </el-form-item>
-        <el-form-item class="register-links">
-          <div class="links-container">
-            <span class="link-text" @click="goToLogin">已有账号？立即登录</span>
+        <el-form-item class="mt-10px mb-0">
+          <div class="flex-center w-full text-14px">
+            <span class="text-[#409EFF] cursor-pointer transition-colors duration-300 hover:text-[#66b1ff] hover:underline" @click="goToLogin">已有账号？立即登录</span>
           </div>
         </el-form-item>
       </el-form>
@@ -201,81 +199,7 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-.register-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.register-box {
-  width: 450px;
-  padding: 40px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-}
-
-.register-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.register-header h2 {
-  margin: 0 0 10px 0;
-  color: #303133;
-  font-size: 28px;
-  font-weight: 600;
-}
-
-.register-header p {
-  margin: 0;
-  color: #909399;
-  font-size: 14px;
-}
-
-.register-form {
-  margin-top: 30px;
-}
-
-.register-button {
-  width: 100%;
-  margin-top: 10px;
-}
-
-.password-icon {
-  color: #909399;
-  transition: color 0.3s;
-}
-
-.password-icon:hover {
-  color: #409EFF;
-}
-
-.register-links {
-  margin-top: 10px;
-  margin-bottom: 0;
-}
-
-.links-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  font-size: 14px;
-}
-
-.link-text {
-  color: #409EFF;
-  cursor: pointer;
-  transition: color 0.3s;
-}
-
-.link-text:hover {
-  color: #66b1ff;
-  text-decoration: underline;
-}
+/* 样式已迁移到 UnoCSS */
 </style>
 
 
