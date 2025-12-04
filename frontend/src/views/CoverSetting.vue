@@ -104,7 +104,7 @@
         
         <!-- 裁剪预览区（同步关键帧） -->
         <el-row>
-          <el-col :span="24" class="crop-area">
+          <el-col :span="24" class="crop-area" @wheel="handleWheelZoom" @mouseenter="onCropAreaEnter" @mouseleave="onCropAreaLeave">
             <div class="crop-preview" v-if="selectedKeyframe">
               <img
                 ref="cropImage"
@@ -119,7 +119,12 @@
                 v-if="selectedKeyframe"
                 class="crop-box"
                 :style="cropBoxStyle"
-              ></div>
+              >
+                <!-- 分辨率显示 -->
+                <div class="crop-resolution">
+                  {{ cropResolution }}
+                </div>
+              </div>
             </div>
             <div class="crop-placeholder" v-else>
               <el-icon :size="48"><Picture /></el-icon>
@@ -135,17 +140,18 @@
               <el-divider direction="vertical" />
               <div class="zoom-controls">
                 <span style="font-size: 13px; margin-right: 8px;">缩放</span>
-                <el-icon class="zoom-icon"><ZoomOut /></el-icon>
+                <el-icon class="zoom-icon" @click="zoomOut"><ZoomOut /></el-icon>
                 <el-slider 
                   v-model="scaleValue" 
-                  :min="50" 
-                  :max="200" 
+                  :min="0" 
+                  :max="100" 
                   :step="10"
                   :show-tooltip="false"
                   class="zoom-slider"
                   style="width: 100px;"
+                  @input="onScaleChange"
                 />
-                <el-icon class="zoom-icon"><ZoomIn /></el-icon>
+                <el-icon class="zoom-icon" @click="zoomIn"><ZoomIn /></el-icon>
               </div>
             </div>
           </el-col>
@@ -315,7 +321,7 @@ const imageInput = ref(null)
 const keyframes = ref([]) // 11个关键帧的图片地址
 const selectedKeyframe = ref('') // 当前选中的关键帧
 const selectedFrameIndex = ref(-1) // 当前选中的关键帧索引
-const scaleValue = ref(100) // 缩放值（百分比）
+const scaleValue = ref(0) // 缩放值（百分比，0表示不缩放，100表示放大一倍）
 
 // 拖动相关变量
 const progressTrack = ref(null)
@@ -347,6 +353,9 @@ const cropBoxStyle = ref({
 
 // 图片显示样式
 const imageStyle = ref({})
+
+// 裁剪分辨率显示
+const cropResolution = ref('')
 
 // 图片拖动相关变量
 const isImageDragging = ref(false)
@@ -512,15 +521,20 @@ const updateCropBox = () => {
   const imgNaturalHeight = img.naturalHeight
   const imgAspectRatio = imgNaturalWidth / imgNaturalHeight
   
-  // 先让图片高度等于预览区高度，计算此时图片宽度
-  let imgDisplayHeight = containerHeight
-  let imgDisplayWidth = imgDisplayHeight * imgAspectRatio
+  // 先让图片高度等于预览区高度，计算此时图片宽度（基础尺寸）
+  let baseImgDisplayHeight = containerHeight
+  let baseImgDisplayWidth = baseImgDisplayHeight * imgAspectRatio
   
   // 如果此时图片宽度小于颜色框宽度，则放大图片，使宽度至少等于颜色框宽度
-  if (imgDisplayWidth < cropWidth) {
-    imgDisplayWidth = cropWidth
-    imgDisplayHeight = imgDisplayWidth / imgAspectRatio
+  if (baseImgDisplayWidth < cropWidth) {
+    baseImgDisplayWidth = cropWidth
+    baseImgDisplayHeight = baseImgDisplayWidth / imgAspectRatio
   }
+  
+  // 应用缩放（scaleValue: 0表示不缩放，100表示放大一倍）
+  const scale = 1 + scaleValue.value / 100
+  let imgDisplayWidth = baseImgDisplayWidth * scale
+  let imgDisplayHeight = baseImgDisplayHeight * scale
   
   // 计算裁剪框在容器中的位置（居中）
   const left = containerRect.width / 2
@@ -533,10 +547,6 @@ const updateCropBox = () => {
     top: `${top}px`,
     transform: 'translate(-50%, -50%)'
   }
-  
-  // 计算图片的可拖动范围（确保图片边缘不超出颜色框）
-  const cropBoxLeft = left - cropWidth / 2
-  const cropBoxTop = top - cropHeight / 2
   
   // 如果图片尺寸大于颜色框，可以拖动
   // 计算图片初始位置（居中）
@@ -558,6 +568,65 @@ const updateCropBox = () => {
   
   // 更新图片显示尺寸和位置
   updateImageStyle(imgDisplayWidth, imgDisplayHeight)
+  
+  // 计算裁剪后的实际分辨率（基于图片原始分辨率）
+  // 裁剪后的分辨率 = (裁剪框像素尺寸 / 图片显示像素尺寸) × 图片原始分辨率
+  const scaleX = cropWidth / imgDisplayWidth
+  const scaleY = cropHeight / imgDisplayHeight
+  const cropRealWidth = Math.round(imgNaturalWidth * scaleX)
+  const cropRealHeight = Math.round(imgNaturalHeight * scaleY)
+  
+  // 更新分辨率显示（裁剪后的实际分辨率）
+  cropResolution.value = `${cropRealWidth} × ${cropRealHeight}`
+}
+
+// 缩放值改变时的回调
+const onScaleChange = () => {
+  if (selectedKeyframe.value) {
+    updateCropBox()
+  }
+}
+
+// 缩小（每次-10）
+const zoomOut = () => {
+  if (scaleValue.value > 0) {
+    scaleValue.value = Math.max(0, scaleValue.value - 10)
+    onScaleChange()
+  }
+}
+
+// 放大（每次+10）
+const zoomIn = () => {
+  if (scaleValue.value < 100) {
+    scaleValue.value = Math.min(100, scaleValue.value + 10)
+    onScaleChange()
+  }
+}
+
+// 鼠标滚轮缩放
+const handleWheelZoom = (e) => {
+  if (!selectedKeyframe.value) return
+  
+  e.preventDefault()
+  e.stopPropagation()
+  
+  // 滚轮向上放大，向下缩小
+  const delta = e.deltaY > 0 ? -5 : 5 // 每次滚动调整5%
+  const newValue = scaleValue.value + delta
+  
+  // 限制范围 0-100
+  scaleValue.value = Math.max(0, Math.min(100, newValue))
+  onScaleChange()
+}
+
+// 鼠标进入裁剪区域
+const onCropAreaEnter = () => {
+  // 可以添加一些视觉反馈
+}
+
+// 鼠标离开裁剪区域
+const onCropAreaLeave = () => {
+  // 可以添加一些视觉反馈
 }
 
 // 更新图片样式（包括位置）
@@ -590,8 +659,12 @@ const updateImageStyle = (width, height) => {
     position: 'absolute',
     left: `${imageLeft}px`,
     top: `${imageTop}px`,
-    transform: 'translate(-50%, -50%)',
-    cursor: 'move'
+    transform: 'translate(-50%, -50%) translateZ(0)',
+    cursor: 'move',
+    // 改善图片渲染质量
+    imageRendering: 'auto',
+    WebkitImageRendering: 'auto',
+    msInterpolationMode: 'bicubic'
   }
 }
 
@@ -1160,6 +1233,15 @@ onUnmounted(() => {
   display: block;
   user-select: none;
   -webkit-user-drag: none;
+  /* 改善图片渲染质量 - 使用平滑插值 */
+  image-rendering: auto;
+  image-rendering: -webkit-optimize-contrast;
+  -ms-interpolation-mode: bicubic;
+  /* 强制使用GPU加速 */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .crop-image:active {
@@ -1174,6 +1256,21 @@ onUnmounted(() => {
   pointer-events: none;
   z-index: 10;
   box-sizing: border-box;
+}
+
+/* 分辨率显示 */
+.crop-resolution {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 11;
 }
 
 .crop-placeholder {
