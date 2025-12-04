@@ -144,36 +144,72 @@
 
       <!-- 底部：关键帧栏 -->
       <el-footer class="footer-section">
-        <!-- 1. 关键帧拖动区（带滚动+拖动交互） -->
-        <div class="keyframe-drag-area">
-          <!-- 关键帧列表（11个快速选点） -->
-          <div class="keyframe-scroll" ref="keyframeScroll">
+        <!-- 关键帧选择区域 -->
+        <div class="keyframe-select-area">
+          <div class="keyframe-container">
+            <!-- 11个关键帧（紧密排列） -->
+            <div class="preview-frames">
+              <div
+                v-for="(frame, index) in keyframes"
+                :key="index"
+                class="preview-frame"
+                :class="{ 'preview-frame-selected': selectedFrameIndex === index }"
+                :style="{ backgroundImage: `url(${frame})` }"
+                @click="selectKeyframe(index)"
+              ></div>
+              <div v-if="keyframes.length === 0" class="keyframe-empty">
+                导入视频后将显示关键帧
+              </div>
+            </div>
+            
+            <!-- 滑块（可拖动，叠加在关键帧上方） -->
             <div
-              v-for="(frame, index) in keyframes"
-              :key="index"
-              class="keyframe-item"
-              :class="{ 'keyframe-selected': selectedFrameIndex === index }"
-              @click="selectKeyframe(index)"
+              v-if="keyframes.length > 0"
+              ref="slider"
+              class="slider"
+              :style="{ 
+                left: `${(dragPercent >= 0 ? dragPercent : currentProgressPercent) * 100}%`,
+                display: isDragging || dragPercent >= 0 ? 'block' : 'none'
+              }"
             >
-              <img :src="frame" class="keyframe-thumbnail" />
+              <!-- 滑块预览图片 -->
+              <div
+                v-if="dragPreviewFrame"
+                class="slider-preview"
+                :style="{ backgroundImage: `url(${dragPreviewFrame})` }"
+              ></div>
+              <!-- 滑块箭头指示器 -->
+              <div class="slider-arrow">
+                <svg xmlns="http://www.w3.org/2000/svg" width="6" height="6" fill="#797979" viewBox="0 0 6 6" style="transform: rotate(180deg);">
+                  <path d="M6 3 1.636.402v5.196z"></path>
+                </svg>
+                <div class="slider-arrow-decorator"></div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="6" height="6" fill="#797979" viewBox="0 0 6 6">
+                  <path d="M6 3 1.636.402v5.196z"></path>
+                </svg>
+              </div>
             </div>
-            <div v-if="keyframes.length === 0" class="keyframe-empty">
-              导入视频后将显示关键帧
-            </div>
-          </div>
-          <!-- 拖动轨道（占满宽度，用于监听拖动事件） -->
-          <div 
-            ref="dragTrack"
-            class="drag-track"
-            @mousedown="startDrag"
-            @mousemove="onTrackHover"
-          >
-            <!-- 拖动指示器（类似进度条） -->
-            <div 
-              v-if="dragPercent >= 0"
-              class="drag-indicator"
-              :style="{ left: `${dragPercent * 100}%` }"
+            
+            <!-- 拖动轨道（覆盖整个关键帧区域） -->
+            <div
+              v-if="keyframes.length > 0"
+              ref="progressTrack"
+              class="progress-track-overlay"
+              @mousedown="startDrag"
             ></div>
+            
+            <!-- 推荐气泡（显示在特定关键帧上方） -->
+            <div
+              v-for="(bubble, index) in recommendBubbles"
+              :key="index"
+              class="recommend-bubble"
+              :style="{ left: `${(bubble.index / (keyframes.length - 1 || 1)) * 100}%` }"
+            >
+              <div
+                class="recommend-bubble-preview"
+                :style="{ backgroundImage: `url(${keyframes[bubble.index]})` }"
+              ></div>
+            </div>
           </div>
         </div>
         
@@ -208,18 +244,6 @@
           </div>
       
         </div>
-        
-        <!-- 悬浮预览弹窗（拖动时显示） -->
-        <teleport to="body">
-          <div
-            v-if="isDragging && dragPreviewFrame"
-            ref="previewPopup"
-            class="preview-popup"
-            :style="previewPopupStyle"
-          >
-            <img :src="dragPreviewFrame" class="preview-image" />
-          </div>
-        </teleport>
       </el-footer>
     </el-container>
 
@@ -284,15 +308,22 @@ const selectedFrameIndex = ref(-1) // 当前选中的关键帧索引
 const scaleValue = ref(100) // 缩放值（百分比）
 
 // 拖动相关变量
-const dragTrack = ref(null)
+const progressTrack = ref(null)
 const keyframeScroll = ref(null)
-const previewPopup = ref(null)
 const isDragging = ref(false)
 const dragPreviewFrame = ref('')
 const dragPercent = ref(-1) // 拖动进度百分比（-1表示未拖动）
+const currentProgressPercent = ref(0) // 当前进度百分比（0-1）
 const videoRef = ref(null) // 存储视频实例
 const currentVideoFile = ref(null) // 存储当前导入的视频文件
-const previewPopupStyle = ref({ left: '0px', top: '0px' })
+const slider = ref(null) // 滑块元素
+
+// 推荐气泡配置（显示在第2、6、8个关键帧上方）
+const recommendBubbles = ref([
+  { index: 1 }, // 第2个（索引1）
+  { index: 5 }, // 第6个（索引5）
+  { index: 7 }  // 第8个（索引7）
+])
 
 // 返回
 const handleBack = () => {
@@ -371,6 +402,9 @@ const handleVideoImport = async (e) => {
 
     // 5. 默认选中第1个关键帧
     selectKeyframe(0)
+    
+    // 初始化进度条
+    currentProgressPercent.value = 0
 
     // 确保视频可以播放（用于拖动时截取帧）
     video.muted = true
@@ -394,6 +428,19 @@ const selectKeyframe = (index) => {
   if (index < 0 || index >= keyframes.value.length) return
   selectedFrameIndex.value = index
   selectedKeyframe.value = keyframes.value[index]
+  
+  // 更新进度条位置
+  if (keyframes.value.length > 1) {
+    currentProgressPercent.value = index / (keyframes.value.length - 1)
+  } else {
+    currentProgressPercent.value = 0
+  }
+  
+  // 如果视频已加载，同步视频时间
+  if (videoRef.value && videoRef.value.duration) {
+    const time = (index / (keyframes.value.length - 1 || 1)) * videoRef.value.duration
+    videoRef.value.currentTime = time
+  }
 }
 
 // 打开图片导入选择框
@@ -416,16 +463,73 @@ const handleImageImport = (e) => {
   e.target.value = ''
 }
 
-// 轨道悬浮（显示拖动指示器）
-const onTrackHover = (e) => {
-  if (isDragging.value || !dragTrack.value) return
-  const trackRect = dragTrack.value.getBoundingClientRect()
-  const mouseX = e.clientX - trackRect.left
-  dragPercent.value = Math.max(0, Math.min(1, mouseX / trackRect.width))
+// 拖动结束后显示当前帧预览（3秒后自动隐藏）
+let previewHideTimeout = null
+const showCurrentFramePreview = () => {
+  // 清除之前的隐藏定时器
+  if (previewHideTimeout) {
+    clearTimeout(previewHideTimeout)
+  }
+  
+  // 3秒后自动隐藏
+  previewHideTimeout = setTimeout(() => {
+    dragPreviewFrame.value = ''
+  }, 3000)
+}
+
+// 更新预览帧（节流处理）
+let previewTimeout = null
+const updatePreviewFrame = (videoTime, clientX, clientY, showPopup = true) => {
+  if (!videoRef.value) return
+  
+  // 清除之前的定时器
+  if (previewTimeout) {
+    clearTimeout(previewTimeout)
+  }
+  
+  // 节流处理，避免频繁更新
+  previewTimeout = setTimeout(() => {
+    if (!videoRef.value) return
+    
+    const video = videoRef.value
+    
+    // 如果时间变化不大，不更新
+    if (Math.abs(video.currentTime - videoTime) < 0.1) {
+      return
+    }
+    
+    video.currentTime = videoTime
+    
+    const onSeeked = () => {
+      video.removeEventListener('seeked', onSeeked)
+      if (!videoRef.value) return
+      
+      try {
+        const canvas = document.createElement('canvas')
+        const aspectRatio = video.videoHeight / video.videoWidth
+        const width = 200
+        const height = Math.round(width * aspectRatio)
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(video, 0, 0, width, height)
+        dragPreviewFrame.value = canvas.toDataURL('image/jpeg', 0.8)
+      } catch (error) {
+        console.error('截取预览帧失败:', error)
+      }
+    }
+    
+    video.addEventListener('seeked', onSeeked, { once: true })
+  }, 100) // 100ms节流
 }
 
 // 开始拖动（mousedown）
 const startDrag = (e) => {
+  // 如果点击的是关键帧标记点，不处理拖动
+  if (e.target.classList.contains('keyframe-marker')) {
+    return
+  }
+  
   if (!videoRef.value || !currentVideoFile.value) {
     console.log('无法拖动：视频未加载', { videoRef: !!videoRef.value, file: !!currentVideoFile.value })
     return
@@ -452,77 +556,27 @@ const startDrag = (e) => {
 // 拖动中（mousemove）
 let dragTimeout = null
 const onDragMove = (e) => {
-  if (!isDragging.value || !dragTrack.value || !videoRef.value) return
+  if (!isDragging.value || !progressTrack.value || !videoRef.value) return
   
   e.preventDefault()
   e.stopPropagation()
   
-  // 1. 计算鼠标在拖动轨道的相对位置 → 映射为视频时间
-  const trackRect = dragTrack.value.getBoundingClientRect()
+  // 1. 计算鼠标在进度条的相对位置 → 映射为视频时间
+  const trackRect = progressTrack.value.getBoundingClientRect()
   const mouseX = e.clientX - trackRect.left
   const percent = Math.max(0, Math.min(1, mouseX / trackRect.width))
   dragPercent.value = percent // 更新拖动进度
+  currentProgressPercent.value = percent // 更新当前进度
   const videoTime = percent * videoRef.value.duration
   
-  // 2. 显示悬浮预览弹窗（跟随鼠标）
-  previewPopupStyle.value = {
-    left: `${e.clientX + 10}px`,
-    top: `${e.clientY - 180}px`
-  }
-  
-  // 3. 让关键帧栏跟随鼠标滚动
+  // 2. 让关键帧缩略图栏跟随鼠标滚动（可选）
   if (keyframeScroll.value) {
     const scrollLeft = percent * (keyframeScroll.value.scrollWidth - trackRect.width)
     keyframeScroll.value.scrollLeft = scrollLeft
   }
   
-  // 4. 节流处理视频帧截取（避免频繁seek）
-  if (dragTimeout) {
-    clearTimeout(dragTimeout)
-  }
-  
-  dragTimeout = setTimeout(() => {
-    if (!videoRef.value || !isDragging.value) {
-      return
-    }
-    
-    const video = videoRef.value
-    const targetTime = videoTime
-    
-    // 检查视频是否已加载
-    if (video.readyState < 2) {
-      console.log('视频未准备好，readyState:', video.readyState)
-      return
-    }
-    
-    // 设置视频时间
-    video.currentTime = targetTime
-    
-    // 等待视频seek完成
-    const onSeeked = () => {
-      if (!videoRef.value || !isDragging.value) return
-      
-      try {
-        // 截取当前时间的帧作为预览图
-        const canvas = document.createElement('canvas')
-        const aspectRatio = video.videoHeight / video.videoWidth
-        canvas.width = 200
-        canvas.height = Math.round(200 * aspectRatio) // 保持视频宽高比
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-        dragPreviewFrame.value = canvas.toDataURL('image/jpeg', 0.8)
-      } catch (error) {
-        console.error('截取视频帧失败:', error)
-      }
-    }
-    
-    // 如果视频已经在目标时间附近，直接截取
-    if (Math.abs(video.currentTime - targetTime) < 0.1) {
-      onSeeked()
-    } else {
-      video.addEventListener('seeked', onSeeked, { once: true })
-    }
-  }, 100) // 100ms节流，给视频更多时间加载
+  // 3. 更新预览图（拖动时显示在滑块位置）
+  updatePreviewFrame(videoTime, e.clientX, e.clientY, false)
 }
 
 // 结束拖动（mouseup）
@@ -538,7 +592,7 @@ const endDrag = (e) => {
   isDragging.value = false
   dragPreviewFrame.value = ''
   
-  if (!dragTrack.value || !videoRef.value) {
+  if (!progressTrack.value || !videoRef.value) {
     dragPercent.value = -1
     document.removeEventListener('mousemove', onDragMove)
     document.removeEventListener('mouseup', endDrag)
@@ -547,10 +601,11 @@ const endDrag = (e) => {
   }
   
   // 松开后选中当前拖动到的帧，同步到裁剪区
-  const trackRect = dragTrack.value.getBoundingClientRect()
+  const trackRect = progressTrack.value.getBoundingClientRect()
   const mouseX = e ? (e.clientX - trackRect.left) : (dragPercent.value * trackRect.width)
   const percent = e ? Math.max(0, Math.min(1, mouseX / trackRect.width)) : dragPercent.value
   const videoTime = percent * videoRef.value.duration
+  currentProgressPercent.value = percent // 更新当前进度
   
   const video = videoRef.value
   
@@ -568,9 +623,18 @@ const endDrag = (e) => {
       canvas.height = Math.round(200 * aspectRatio) // 保持视频宽高比
       const ctx = canvas.getContext('2d')
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-      selectedKeyframe.value = canvas.toDataURL('image/jpeg', 0.8)
       
-      // 更新选中索引（找到最接近的关键帧）
+      // 更新选中帧（使用拖动位置的帧，不限于11个关键帧）
+      const frameDataUrl = canvas.toDataURL('image/jpeg', 0.8)
+      selectedKeyframe.value = frameDataUrl
+      
+      // 保存当前帧预览（用于在滑块位置显示）
+      dragPreviewFrame.value = canvas.toDataURL('image/jpeg', 0.8)
+      
+      // 显示当前帧预览（3秒后自动隐藏）
+      showCurrentFramePreview()
+      
+      // 更新选中索引（找到最接近的关键帧，用于高亮显示）
       const frameCount = keyframes.value.length
       if (frameCount > 0) {
         const closestIndex = Math.round(percent * (frameCount - 1))
@@ -579,7 +643,7 @@ const endDrag = (e) => {
         selectedFrameIndex.value = -1
       }
       
-      console.log('拖动完成，选中帧:', selectedFrameIndex.value, '时间:', videoTime.toFixed(2), '秒')
+      console.log('拖动完成，时间:', videoTime.toFixed(2), '秒', '进度:', (percent * 100).toFixed(1) + '%')
     } catch (error) {
       console.error('截取最终帧失败:', error)
     }
@@ -592,7 +656,17 @@ const endDrag = (e) => {
     video.addEventListener('seeked', onSeeked, { once: true })
   }
   
-  dragPercent.value = -1 // 重置拖动进度
+  // 拖动结束后，保持滑块和预览显示3秒
+  showCurrentFramePreview()
+  
+  // 3秒后隐藏滑块
+  setTimeout(() => {
+    if (!isDragging.value) {
+      dragPercent.value = -1
+      dragPreviewFrame.value = ''
+    }
+  }, 3000)
+  
   document.removeEventListener('mousemove', onDragMove)
   document.removeEventListener('mouseup', endDrag)
   document.removeEventListener('mouseleave', endDrag)
@@ -605,6 +679,9 @@ onUnmounted(() => {
   document.removeEventListener('mouseleave', endDrag)
   if (dragTimeout) {
     clearTimeout(dragTimeout)
+  }
+  if (previewTimeout) {
+    clearTimeout(previewTimeout)
   }
 })
 </script>
@@ -912,103 +989,199 @@ onUnmounted(() => {
 
 /* 底部关键帧栏 */
 .footer-section {
-  height: 160px;
+  height: 120px;
   padding: 10px 20px;
   background-color: #f8f9fa;
   border-top: 1px solid #ddd;
   position: relative;
 }
 
-/* 关键帧拖动区 */
-.keyframe-drag-area {
+/* 关键帧选择区域 */
+.keyframe-select-area {
   width: 100%;
   height: 100px;
-  overflow-x: auto;
-  white-space: nowrap;
   position: relative;
-  margin-bottom: 10px;
 }
 
-.drag-track {
+.keyframe-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* 11个关键帧（紧密排列） */
+.preview-frames {
+  display: flex;
+  gap: 0;
+  height: 100%;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.preview-frame {
+  flex: 1;
+  height: 80px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.preview-frame:hover {
+  border-color: #409eff;
+  transform: scale(1.02);
+}
+
+.preview-frame-selected {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
+}
+
+.keyframe-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  color: #909399;
+  font-size: 14px;
+  width: 100%;
+}
+
+/* 滑块（叠加在关键帧上方） */
+.slider {
+  position: absolute;
+  top: 0;
+  width: 42px;
+  height: 100%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* 滑块预览图片 */
+.slider-preview {
+  position: absolute;
+  top: -90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 53px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 滑块箭头指示器 */
+.slider-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  z-index: 11;
+}
+
+.slider-arrow-decorator {
+  width: 2px;
+  height: 60px;
+  background-color: #797979;
+}
+
+/* 拖动轨道（覆盖整个关键帧区域） */
+.progress-track-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
-  height: 100px;
+  height: 100%;
   cursor: grab;
-  z-index: 10;
-  background-color: transparent;
   user-select: none;
+  z-index: 5;
+  pointer-events: auto;
+  background: transparent;
 }
 
-.drag-track:active {
+.progress-track-overlay:active {
   cursor: grabbing;
 }
 
-.drag-track:hover {
-  background-color: rgba(22, 119, 255, 0.05);
-}
-
-/* 拖动指示器（类似进度条） */
-.drag-indicator {
+/* 推荐气泡 */
+.recommend-bubble {
   position: absolute;
-  top: 0;
-  width: 3px;
-  height: 100%;
-  background-color: #1677ff;
+  top: -70px;
+  width: 8px;
+  height: 8px;
   transform: translateX(-50%);
-  z-index: 11;
+  z-index: 8;
   pointer-events: none;
-  box-shadow: 0 0 4px rgba(22, 119, 255, 0.5);
 }
 
-.drag-indicator::before {
+.recommend-bubble::before {
   content: '';
   position: absolute;
-  top: -4px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 11px;
-  height: 11px;
+  width: 8px;
+  height: 8px;
   background-color: #1677ff;
   border-radius: 50%;
   border: 2px solid #fff;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.keyframe-scroll {
-  height: 100%;
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  padding: 5px 0;
-  position: relative;
-  z-index: 2;
+.recommend-bubble-preview {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 53px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
 }
 
-.keyframe-scroll::-webkit-scrollbar {
+.recommend-bubble:hover .recommend-bubble-preview {
+  opacity: 1;
+}
+
+.keyframe-thumbnails-scroll::-webkit-scrollbar {
   height: 6px;
 }
 
-.keyframe-scroll::-webkit-scrollbar-track {
+.keyframe-thumbnails-scroll::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 3px;
 }
 
-.keyframe-scroll::-webkit-scrollbar-thumb {
+.keyframe-thumbnails-scroll::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 3px;
 }
 
-.keyframe-scroll::-webkit-scrollbar-thumb:hover {
+.keyframe-thumbnails-scroll::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 
-.keyframe-item {
+.keyframe-thumbnail-item {
   position: relative;
   flex-shrink: 0;
   width: 80px;
-  height: 100px;
+  height: 80px;
   border: 2px solid transparent;
   border-radius: 4px;
   overflow: hidden;
@@ -1018,30 +1191,44 @@ onUnmounted(() => {
   z-index: 2;
 }
 
-.keyframe-item:hover {
-  transform: scale(1.02);
+.keyframe-thumbnail-item:hover {
+  transform: scale(1.05);
   border-color: #409eff;
 }
 
-.keyframe-item.keyframe-selected {
+.keyframe-thumbnail-item.keyframe-thumbnail-selected {
   border-color: #1677ff;
   box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.2);
 }
 
-.keyframe-thumbnail {
+.keyframe-thumbnail-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
+.keyframe-thumbnail-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+  color: #fff;
+  font-size: 10px;
+  text-align: center;
+  padding: 2px 0;
+  font-weight: bold;
+}
+
 .keyframe-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100px;
+  height: 90px;
   color: #909399;
   font-size: 14px;
+  width: 100%;
 }
 
 /* 底部操作区 */
@@ -1088,24 +1275,6 @@ onUnmounted(() => {
   font-weight: bold;
 }
 
-/* 悬浮预览弹窗 */
-.preview-popup {
-  position: fixed;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 999;
-  pointer-events: none;
-}
-
-.preview-image {
-  width: 200px;
-  height: 355px;
-  object-fit: cover;
-  border-radius: 4px;
-  display: block;
-}
 
 .recommend-badge {
   position: absolute;
