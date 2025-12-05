@@ -284,7 +284,7 @@
     </el-container>
 
       <!-- 右侧：预览区 -->
-      <el-aside width="200px" class="right-aside">
+      <el-aside width="240px" class="right-aside">
       <div class="preview-header">
         <span>{{ coverRatio === 'vertical' ? '竖封面预览(3:4)' : '横封面预览(4:3)' }}</span>
       </div>
@@ -294,8 +294,13 @@
           <div 
             v-if="croppedPreviewImage" 
             class="preview-item preview-item-active"
-            :style="{ backgroundImage: `url(${croppedPreviewImage})` }"
-          ></div>
+          >
+            <img 
+              :src="croppedPreviewImage" 
+              alt="裁剪预览"
+              class="preview-image"
+            />
+          </div>
           <div v-else class="preview-item preview-item-active">
             <div class="preview-item-empty">
               <el-icon :size="24"><Picture /></el-icon>
@@ -307,9 +312,14 @@
             v-for="(preview, index) in previewImages" 
             :key="index"
             class="preview-item"
-            :style="{ backgroundImage: preview ? `url(${preview})` : 'none' }"
           >
-            <div v-if="!preview" class="preview-item-empty">
+            <img 
+              v-if="preview"
+              :src="preview" 
+              :alt="`预览${index + 1}`"
+              class="preview-image"
+            />
+            <div v-else class="preview-item-empty">
               <el-icon :size="20"><Picture /></el-icon>
             </div>
           </div>
@@ -475,17 +485,32 @@ const handleVideoImport = async (e) => {
         video.addEventListener('seeked', onSeeked)
       })
 
-      // 3. 用canvas截取帧
+      // 3. 用canvas截取帧（使用高分辨率）
       const canvas = document.createElement('canvas')
-      const width = 200 // 关键帧缩略图宽度
-      const height = (video.videoHeight / video.videoWidth) * width
+      // 使用高分辨率生成关键帧（至少 800px 宽度，保持视频宽高比）
+      const baseWidth = 800
+      const aspectRatio = video.videoHeight / video.videoWidth
+      const width = baseWidth
+      const height = Math.round(baseWidth * aspectRatio)
+      
       canvas.width = width
       canvas.height = height
-      const ctx = canvas.getContext('2d')
+      const ctx = canvas.getContext('2d', {
+        willReadFrequently: false,
+        alpha: false
+      })
+      
+      if (!ctx) continue
+      
+      // 设置高质量渲染
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
+      
+      // 绘制视频帧到 canvas（使用高分辨率）
       ctx.drawImage(video, 0, 0, width, height)
 
-      // 4. 转成图片地址存入关键帧列表
-      keyframes.value.push(canvas.toDataURL('image/jpeg', 0.8))
+      // 4. 转成图片地址存入关键帧列表（使用高质量）
+      keyframes.value.push(canvas.toDataURL('image/jpeg', 0.95))
     }
 
     // 5. 默认选中第1个关键帧
@@ -710,27 +735,60 @@ const generateCroppedPreview = () => {
   const scaleX = img.naturalWidth / imgDisplayWidth
   const scaleY = img.naturalHeight / imgDisplayHeight
   
-  // 创建canvas来裁剪图片
-  const canvas = document.createElement('canvas')
-  canvas.width = cropBoxWidth // 预览图的尺寸就是裁剪框的尺寸
-  canvas.height = cropBoxHeight
-  const ctx = canvas.getContext('2d')
+  // 计算裁剪框的宽高比
+  const cropAspectRatio = cropBoxWidth / cropBoxHeight
   
-  // 绘制裁剪区域（从原始图片中裁剪）
+  // 使用高分辨率生成预览图（根据封面比例设置目标尺寸）
+  // 竖屏 3:4 或横屏 4:3，使用 1080p 分辨率
+  let outputWidth
+  let outputHeight
+  
+  if (coverRatio.value === 'vertical') {
+    // 竖屏 3:4，使用 1080x1440 (3:4 比例)
+    outputWidth = 1080
+    outputHeight = 1440
+  } else {
+    // 横屏 4:3，使用 1440x1080 (4:3 比例)
+    outputWidth = 1440
+    outputHeight = 1080
+  }
+  
+  // 创建canvas来裁剪图片（使用高分辨率）
+  const canvas = document.createElement('canvas')
+  canvas.width = outputWidth
+  canvas.height = outputHeight
+  const ctx = canvas.getContext('2d', { 
+    willReadFrequently: false,
+    alpha: false 
+  })
+  
+  if (!ctx) return
+  
+  // 设置高质量渲染
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  
+  // 计算源图片中的实际裁剪区域（使用自然尺寸）
+  const sourceNaturalX = finalSourceX * scaleX
+  const sourceNaturalY = finalSourceY * scaleY
+  const sourceNaturalWidth = finalSourceWidth * scaleX
+  const sourceNaturalHeight = finalSourceHeight * scaleY
+  
+  // 绘制裁剪区域（从原始图片中裁剪，缩放到高分辨率）
   ctx.drawImage(
     img,
-    finalSourceX * scaleX, // 源图片的x坐标（自然尺寸）
-    finalSourceY * scaleY, // 源图片的y坐标（自然尺寸）
-    finalSourceWidth * scaleX, // 源图片的宽度（自然尺寸）
-    finalSourceHeight * scaleY, // 源图片的高度（自然尺寸）
+    sourceNaturalX, // 源图片的x坐标（自然尺寸）
+    sourceNaturalY, // 源图片的y坐标（自然尺寸）
+    sourceNaturalWidth, // 源图片的宽度（自然尺寸）
+    sourceNaturalHeight, // 源图片的高度（自然尺寸）
     0, // 目标canvas的x坐标
     0, // 目标canvas的y坐标
-    cropBoxWidth, // 目标canvas的宽度
-    cropBoxHeight // 目标canvas的高度
+    outputWidth, // 目标canvas的宽度（高分辨率）
+    outputHeight // 目标canvas的高度（高分辨率）
   )
   
-  // 转换为base64
-  croppedPreviewImage.value = canvas.toDataURL('image/jpeg', 0.9)
+  // 转换为base64（使用高质量）
+  croppedPreviewImage.value = canvas.toDataURL('image/jpeg', 0.95)
 }
 
 // 生成其他预览图（从关键帧）
@@ -1037,13 +1095,24 @@ const updatePreviewFrame = (videoTime, clientX, clientY, showPopup = true) => {
       try {
         const canvas = document.createElement('canvas')
         const aspectRatio = video.videoHeight / video.videoWidth
-        const width = 200
+        // 使用高分辨率生成预览帧（800px 宽度）
+        const width = 800
         const height = Math.round(width * aspectRatio)
         canvas.width = width
         canvas.height = height
-        const ctx = canvas.getContext('2d')
+        const ctx = canvas.getContext('2d', {
+          willReadFrequently: false,
+          alpha: false
+        })
+        
+        if (!ctx) return
+        
+        // 设置高质量渲染
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        
         ctx.drawImage(video, 0, 0, width, height)
-        dragPreviewFrame.value = canvas.toDataURL('image/jpeg', 0.8)
+        dragPreviewFrame.value = canvas.toDataURL('image/jpeg', 0.95)
       } catch (error) {
         console.error('截取预览帧失败:', error)
       }
@@ -1146,20 +1215,33 @@ const endDrag = (e) => {
     if (!videoRef.value) return
     
     try {
-      // 截取最终帧并设置为选中
+      // 截取最终帧并设置为选中（使用高分辨率）
       const canvas = document.createElement('canvas')
       const aspectRatio = video.videoHeight / video.videoWidth
-      canvas.width = 200
-      canvas.height = Math.round(200 * aspectRatio) // 保持视频宽高比
-      const ctx = canvas.getContext('2d')
+      // 使用高分辨率生成选中帧（800px 宽度）
+      const width = 800
+      const height = Math.round(width * aspectRatio) // 保持视频宽高比
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d', {
+        willReadFrequently: false,
+        alpha: false
+      })
+      
+      if (!ctx) return
+      
+      // 设置高质量渲染
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
+      
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
       
       // 更新选中帧（使用拖动位置的帧，不限于11个关键帧）
-      const frameDataUrl = canvas.toDataURL('image/jpeg', 0.8)
+      const frameDataUrl = canvas.toDataURL('image/jpeg', 0.95)
       selectedKeyframe.value = frameDataUrl
       
       // 保存当前帧预览（用于在滑块位置显示）
-      dragPreviewFrame.value = canvas.toDataURL('image/jpeg', 0.8)
+      dragPreviewFrame.value = frameDataUrl
       
       // 显示当前帧预览（3秒后自动隐藏）
       showCurrentFramePreview()
@@ -1929,11 +2011,29 @@ onUnmounted(() => {
   border-radius: 4px;
   position: relative;
   overflow: hidden;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
   cursor: pointer;
   transition: all 0.3s;
+}
+
+/* 预览图片 */
+.preview-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  /* 改善图片渲染质量 */
+  image-rendering: -webkit-optimize-contrast;
+  -ms-interpolation-mode: bicubic;
+  image-rendering: auto;
+  /* 使用高质量缩放，避免模糊 */
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  /* 回退到高质量自动渲染 */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: auto;
 }
 
 .preview-item:hover {
