@@ -2,11 +2,11 @@
   <div class="flex-center min-h-screen bg-gradient-to-br from-[#667eea] to-[#764ba2] dark:from-[#1a1a2e] dark:to-[#16213e] relative">
     <!-- 登录页面也显示主题和设置按钮 -->
     <div class="absolute top-4 right-4 flex items-center gap-2 z-10">
-      <el-tooltip :content="themeStore.isDark ? '切换到亮色模式' : '切换到暗黑模式'" placement="bottom">
+      <el-tooltip :content="themeStore?.isDark ? '切换到亮色模式' : '切换到暗黑模式'" placement="bottom">
         <el-button
-          :icon="themeStore.isDark ? Sunny : Moon"
+          :icon="themeStore?.isDark ? Sunny : Moon"
           circle
-          @click="themeStore.toggleTheme()"
+          @click="themeStore?.toggleTheme()"
           style="color: white; border: none; background: rgba(255,255,255,0.2);"
           class="hover:bg-white/30"
         />
@@ -91,12 +91,17 @@
 import { ref, reactive, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, View, Hide } from '@element-plus/icons-vue'
+import { User, Lock, View, Hide, Sunny, Moon, Setting } from '@element-plus/icons-vue'
 import { login } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
+import { useSettingsStore } from '@/stores/settings'
+import SettingsPanel from '@/components/SettingsPanel.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const themeStore = useThemeStore()
+const settingsStore = useSettingsStore()
 const loginFormRef = ref(null)
 const loading = ref(false)
 const showPassword = ref(false)

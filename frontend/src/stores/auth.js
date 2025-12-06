@@ -23,7 +23,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const isAuthenticated = () => {
-    return !!token.value
+    // 确保从 localStorage 读取最新的 token
+    const currentToken = localStorage.getItem('token')
+    return !!currentToken && currentToken.trim() !== ''
   }
 
   return {

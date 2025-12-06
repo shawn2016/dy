@@ -7,11 +7,11 @@
         <h1 class="m-0 text-24px font-medium">视频封面管理系统</h1>
         <div class="flex items-center gap-3">
           <!-- 主题切换按钮 -->
-          <el-tooltip :content="themeStore.isDark ? '切换到亮色模式' : '切换到暗黑模式'" placement="bottom">
+          <el-tooltip :content="themeStore?.isDark ? '切换到亮色模式' : '切换到暗黑模式'" placement="bottom">
             <el-button
-              :icon="themeStore.isDark ? Sunny : Moon"
+              :icon="themeStore?.isDark ? Sunny : Moon"
               circle
-              @click="themeStore.toggleTheme()"
+              @click="themeStore?.toggleTheme()"
               style="color: white; border: none; background: transparent;"
               class="hover:bg-white/10"
             />
@@ -58,7 +58,7 @@
           :default-active="activeMenu"
           class="border-r-0 h-full"
           router
-          :background-color="themeStore.isDark ? '#1f2937' : '#304156'"
+          :background-color="themeStore?.isDark ? '#1f2937' : '#304156'"
           text-color="#bfcbd9"
           active-text-color="#409EFF"
         >

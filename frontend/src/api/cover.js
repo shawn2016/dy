@@ -31,10 +31,17 @@ api.interceptors.response.use(
       if (res.code === 200) {
         return { data: res.data }
       } else if (res.code === 401) {
+        // 清除认证信息
         localStorage.removeItem('token')
         localStorage.removeItem('user')
-        ElMessage.error('登录已过期，请重新登录')
-        window.location.href = '/login'
+        // 使用 router 跳转而不是 window.location，避免页面刷新
+        if (window.location.pathname !== '/login') {
+          ElMessage.error('登录已过期，请重新登录')
+          // 延迟跳转，避免在路由守卫中重复处理
+          setTimeout(() => {
+            window.location.href = '/login'
+          }, 100)
+        }
         return Promise.reject(new Error(res.message || '未授权'))
       } else {
         ElMessage.error(res.message || '请求失败')
@@ -49,8 +56,13 @@ api.interceptors.response.use(
       const errorMessage = error.response?.data?.message || 'Token无效，请重新登录'
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      ElMessage.error(errorMessage)
-      window.location.href = '/login'
+      // 避免重复跳转
+      if (window.location.pathname !== '/login') {
+        ElMessage.error(errorMessage)
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 100)
+      }
       return Promise.reject(new Error(errorMessage))
     }
     
@@ -59,8 +71,13 @@ api.interceptors.response.use(
       const errorMessage = error.response?.data?.message || '登录已过期，请重新登录'
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      ElMessage.error(errorMessage)
-      window.location.href = '/login'
+      // 避免重复跳转
+      if (window.location.pathname !== '/login') {
+        ElMessage.error(errorMessage)
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 100)
+      }
       return Promise.reject(new Error(errorMessage))
     }
     
